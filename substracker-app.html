@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SubTrack — Subscription Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #08090d;
+  --surface: #0f1017;
+  --surface2: #161820;
+  --surface3: #1e2029;
+  --border: rgba(255,255,255,0.06);
+  --border2: rgba(255,255,255,0.1);
+  --accent: #00e5a0;
+  --accent-dim: rgba(0,229,160,0.12);
+  --accent-glow: rgba(0,229,160,0.25);
+  --blue: #4f8ef7;
+  --amber: #f5a623;
+  --red: #ff5f5f;
+  --purple: #9b78f8;
+  --text: #eeeef5;
+  --text2: #9499ab;
+  --text3: #5a5f72;
+  --radius: 14px;
+  --sidebar-w: 230px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px;display:flex}
+.sidebar{width:var(--sidebar-w);flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sb-logo{padding:22px 20px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sb-logo-mark{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),#00b4d8);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;box-shadow:0 4px 12px var(--accent-glow)}
+.sb-logo-text{font-family:'Outfit',sans-serif;font-weight:800;font-size:20px;letter-spacing:-0.5px;background:linear-gradient(135deg,#fff 30%,var(--text2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sb-section-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);padding:16px 20px 8px}
+.sb-nav{list-style:none;padding:0 10px}
+.sb-nav li{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;cursor:pointer;font-weight:500;color:var(--text2);transition:all .15s;margin-bottom:2px;user-select:none}
+.sb-nav li:hover{background:var(--surface2);color:var(--text)}
+.sb-nav li.active{background:var(--accent-dim);color:var(--accent)}
+.sb-nav li .ni{font-size:16px;width:20px;text-align:center;flex-shrink:0}
+.sb-badge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:800;min-width:18px;height:18px;border-radius:100px;display:flex;align-items:center;justify-content:center;padding:0 5px}
+.sb-badge.amber{background:var(--amber);color:#0a0a0f}
+.sb-bottom{margin-top:auto;padding:12px 10px;border-top:1px solid var(--border)}
+.sb-user{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;cursor:pointer;transition:background .15s}
+.sb-user:hover{background:var(--surface2)}
+.avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--purple),var(--blue));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0}
+.sb-user-name{font-weight:600;font-size:13px}
+.sb-user-plan{font-size:11px;color:var(--accent)}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{padding:16px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface);flex-shrink:0}
+.page-title{font-family:'Outfit',sans-serif;font-size:26px;font-weight:800;letter-spacing:-1px;color:#fff}
+.page-sub{font-size:12px;color:var(--text2);margin-top:1px}
+.topbar-actions{display:flex;gap:10px;align-items:center}
+.btn{display:flex;align-items:center;gap:7px;padding:8px 16px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
+.btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-ghost:hover{background:var(--surface2);color:var(--text)}
+.btn-accent{background:linear-gradient(135deg,var(--accent),#00c98a);color:#060a0a;box-shadow:0 4px 16px var(--accent-glow);animation:pulse 2.5s infinite}
+.btn-accent:hover{transform:translateY(-1px);box-shadow:0 6px 20px var(--accent-glow);animation:none}
+.btn-blue{background:rgba(79,142,247,.15);border:1px solid rgba(79,142,247,.3);color:var(--blue)}
+.btn-blue:hover{background:rgba(79,142,247,.22)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-danger{background:rgba(255,95,95,.12);border:1px solid rgba(255,95,95,.3);color:var(--red)}
+.btn-danger:hover{background:rgba(255,95,95,.2)}
+@keyframes pulse{0%,100%{box-shadow:0 4px 16px var(--accent-glow)}50%{box-shadow:0 4px 28px rgba(0,229,160,.45)}}
+.content{flex:1;overflow-y:auto;padding:24px 28px;scrollbar-width:thin;scrollbar-color:var(--surface3) transparent}
+.content::-webkit-scrollbar{width:6px}
+.content::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:3px}
+.view{display:none;animation:fadeIn .2s ease}
+.view.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.alert-banner{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);border-radius:var(--radius);padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:14px;font-size:13px;color:var(--amber)}
+.alert-banner strong{font-weight:700;color:var(--amber)}
+.alert-close{margin-left:auto;cursor:pointer;opacity:.6;font-size:16px;flex-shrink:0}
+.alert-close:hover{opacity:1}
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;transition:border-color .2s}
+.metric-card:hover{border-color:var(--border2)}
+.mc-label{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
+.mc-value{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;letter-spacing:-1px;line-height:1;margin-bottom:6px}
+.mc-sub{font-size:12px;color:var(--text2)}
+.table-hr{display:grid;grid-template-columns:2.5fr 1fr 1fr 1.2fr 90px;padding:8px 16px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.sub-list{display:flex;flex-direction:column;gap:6px}
+.sub-row{display:grid;grid-template-columns:2.5fr 1fr 1fr 1.2fr 90px;padding:13px 16px;background:var(--surface);border:1px solid var(--border);border-radius:11px;align-items:center;transition:all .15s;cursor:pointer}
+.sub-row:hover{border-color:var(--border2);background:var(--surface2)}
+.sn-cell{display:flex;align-items:center;gap:12px}
+.sub-icon{border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;width:34px;height:34px}
+.sub-name-text{font-weight:600;font-size:14px}
+.sub-cat{font-size:11px;color:var(--text3);margin-top:1px}
+.sub-amount{font-weight:700;font-family:'Syne',sans-serif}
+.sub-amount span{font-size:11px;font-weight:400;color:var(--text3);font-family:'DM Sans',sans-serif}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:100px;font-size:11px;font-weight:700}
+.badge-active{background:rgba(0,229,160,.12);color:var(--accent)}
+.badge-trial{background:rgba(245,166,35,.12);color:var(--amber)}
+.badge-renew{background:rgba(255,95,95,.12);color:var(--red)}
+.badge-paused{background:var(--surface3);color:var(--text3)}
+.sub-actions{display:flex;gap:6px;justify-content:flex-end;opacity:0;transition:opacity .15s}
+.sub-row:hover .sub-actions{opacity:1}
+.action-btn{width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .15s;color:var(--text2)}
+.action-btn:hover{background:var(--surface3);color:var(--text)}
+.action-btn.del:hover{background:rgba(255,95,95,.15);border-color:rgba(255,95,95,.3);color:var(--red)}
+.section-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty-icon{font-size:48px;margin-bottom:16px;opacity:.5}
+.empty-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--text2);margin-bottom:8px}
+.empty-desc{font-size:14px;line-height:1.6;margin-bottom:20px}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--surface2);border:1px solid var(--border2);border-radius:18px;padding:28px;width:100%;max-width:460px;transform:scale(.96) translateY(8px);transition:transform .2s;box-shadow:0 40px 80px rgba(0,0,0,.6)}
+.modal-overlay.open .modal{transform:scale(1) translateY(0)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.modal-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:800}
+.modal-close{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:16px;color:var(--text2);display:flex;align-items:center;justify-content:center;transition:all .15s}
+.modal-close:hover{background:var(--surface3);color:var(--text)}
+.form-group{margin-bottom:16px}
+.form-label{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;display:block}
+.form-input,.form-select{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:9px;padding:10px 14px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);outline:none;transition:border-color .15s;-webkit-appearance:none}
+.form-input:focus,.form-select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
+.scan-steps{display:flex;flex-direction:column;gap:10px;margin:20px 0}
+.scan-step{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:10px;font-size:13px;transition:all .3s}
+.scan-step.done{border-color:rgba(0,229,160,.3);background:var(--accent-dim)}
+.scan-step.active-step{border-color:rgba(79,142,247,.3);background:rgba(79,142,247,.08)}
+.scan-step-icon{font-size:18px;flex-shrink:0}
+.scan-step-label{font-weight:600}
+.scan-step-sub{font-size:11px;color:var(--text3);margin-top:1px}
+.scan-check{color:var(--accent);font-size:16px;font-weight:700}
+.scan-found-wrap{background:var(--bg);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px}
+.scan-found-hdr{padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3)}
+.scan-found-item{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--border);animation:slideIn .3s ease}
+.scan-found-item:last-child{border-bottom:none}
+@keyframes slideIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+.scan-found-info{flex:1}
+.scan-found-name{font-weight:600;font-size:13px}
+.scan-found-detail{font-size:11px;color:var(--text3);margin-top:1px}
+.progress-wrap{height:6px;background:var(--surface3);border-radius:100px;overflow:hidden;margin:8px 0}
+.progress-fill{height:100%;border-radius:100px;background:linear-gradient(90deg,var(--accent),var(--blue));transition:width .4s ease}
+.analytics-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.chart-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:16px}
+.bar-chart-wrap{display:flex;align-items:flex-end;gap:8px;height:100px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.bar-lbl{font-size:10px;color:var(--text3)}
+.bar-fill{width:100%;border-radius:4px 4px 0 0;transition:height .5s ease;min-height:4px}
+.cat-item{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.cat-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.cat-name{flex:1;font-size:13px}
+.cat-amount{font-weight:700;font-size:13px}
+.cat-bar-wrap{width:80px;height:4px;background:var(--surface3);border-radius:2px;overflow:hidden}
+.cat-bar{height:100%;border-radius:2px}
+.trials-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.trial-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;transition:all .2s}
+.trial-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.trial-card.urgent{border-color:rgba(255,95,95,.3);background:rgba(255,95,95,.04)}
+.trial-card.warning{border-color:rgba(245,166,35,.3);background:rgba(245,166,35,.03)}
+.trial-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
+.trial-days{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;line-height:1}
+.trial-name{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:4px}
+.trial-detail{font-size:12px;color:var(--text3);margin-bottom:16px}
+.settings-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:16px}
+.settings-section-title{padding:14px 20px;border-bottom:1px solid var(--border);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
+.settings-row:last-child{border-bottom:none}
+.settings-row-label{font-weight:600;font-size:14px}
+.settings-row-desc{font-size:12px;color:var(--text3);margin-top:2px}
+.toggle{width:40px;height:22px;border-radius:100px;background:var(--surface3);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;border:none}
+.toggle.on{background:var(--accent)}
+.toggle::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.toggle.on::after{left:21px}
+.notification{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:12px;font-size:13px;font-weight:500;z-index:2000;transform:translateY(80px);opacity:0;transition:all .3s cubic-bezier(.34,1.56,.64,1);box-shadow:0 12px 40px rgba(0,0,0,.4);min-width:280px}
+.notification.show{transform:translateY(0);opacity:1}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-mark">⚡</div>
+    <span class="sb-logo-text">SubTrack</span>
+  </div>
+  <div class="sb-section-label">Menu</div>
+  <ul class="sb-nav">
+    <li class="active" onclick="navigate('dashboard',this)"><span class="ni">📊</span> Dashboard</li>
+    <li onclick="navigate('subscriptions',this)"><span class="ni">🔄</span> Subscriptions <span class="sb-badge" id="b-sub">0</span></li>
+    <li onclick="navigate('trials',this)"><span class="ni">⏳</span> Free Trials <span class="sb-badge amber" id="b-trial">0</span></li>
+    <li onclick="navigate('analytics',this)"><span class="ni">📈</span> Analytics</li>
+    <li onclick="navigate('settings',this)"><span class="ni">⚙️</span> Settings</li>
+  </ul>
+  <div class="sb-bottom">
+    <div class="sb-user">
+      <div class="avatar">AJ</div>
+      <div>
+        <div class="sb-user-name">Alex Johnson</div>
+        <div class="sb-user-plan">Pro Plan ✓</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="page-title" id="page-title">Dashboard</div>
+      <div class="page-sub" id="page-sub">Welcome back, Alex 👋</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-blue" onclick="openScan()">📧 Scan Gmail</button>
+      <button class="btn btn-accent" onclick="openAdd()">+ Add Subscription</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div id="view-dashboard" class="view active">
+      <div id="alert-box"></div>
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="mc-label">Monthly Spend</div>
+          <div class="mc-value" id="m-spend" style="color:var(--red)">$0</div>
+          <div class="mc-sub" id="m-spend-s">across all services</div>
+        </div>
+        <div class="metric-card">
+          <div class="mc-label">Annual Projection</div>
+          <div class="mc-value" id="m-annual">$0</div>
+          <div class="mc-sub">at current monthly rate</div>
+        </div>
+        <div class="metric-card">
+          <div class="mc-label">Active Subscriptions</div>
+          <div class="mc-value" id="m-active" style="color:var(--accent)">0</div>
+          <div class="mc-sub" id="m-active-s">tracked services</div>
+        </div>
+        <div class="metric-card">
+          <div class="mc-label">Trials Expiring</div>
+          <div class="mc-value" id="m-trials" style="color:var(--amber)">0</div>
+          <div class="mc-sub" id="m-trials-s">watch these!</div>
+        </div>
+      </div>
+      <div class="section-heading">
+        <div class="section-title">🔔 Upcoming Renewals</div>
+        <button class="btn btn-ghost btn-sm" onclick="navigate('subscriptions',document.querySelector('.sb-nav li:nth-child(2)'))">View all →</button>
+      </div>
+      <div id="renewal-list"></div>
+    </div>
+
+    <!-- SUBSCRIPTIONS -->
+    <div id="view-subscriptions" class="view">
+      <div class="section-heading" style="margin-bottom:16px">
+        <div class="section-title">All Subscriptions</div>
+        <button class="btn btn-accent btn-sm" onclick="openAdd()">+ Add New</button>
+      </div>
+      <div class="table-hr">
+        <span>SERVICE</span><span>AMOUNT</span><span>BILLING</span><span>STATUS</span><span></span>
+      </div>
+      <div class="sub-list" id="sub-list"></div>
+    </div>
+
+    <!-- TRIALS -->
+    <div id="view-trials" class="view">
+      <div class="section-heading" style="margin-bottom:20px">
+        <div class="section-title">⏳ Free Trials Tracker</div>
+        <button class="btn btn-accent btn-sm" onclick="openAdd()">+ Add Trial</button>
+      </div>
+      <div class="trials-grid" id="trials-grid"></div>
+    </div>
+
+    <!-- ANALYTICS -->
+    <div id="view-analytics" class="view">
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="mc-label">This Month</div>
+          <div class="mc-value" id="a-monthly" style="color:var(--accent)">$0</div>
+          <div class="mc-sub">total subscription cost</div>
+        </div>
+        <div class="metric-card">
+          <div class="mc-label">Avg Per Day</div>
+          <div class="mc-value" id="a-daily">$0</div>
+          <div class="mc-sub">daily subscription cost</div>
+        </div>
+        <div class="metric-card">
+          <div class="mc-label">Most Expensive</div>
+          <div class="mc-value" id="a-top" style="color:var(--red);font-size:18px">—</div>
+          <div class="mc-sub" id="a-top-s">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="mc-label">Trial Cost at Risk</div>
+          <div class="mc-value" id="a-risk" style="color:var(--amber)">$0</div>
+          <div class="mc-sub">if trials convert to paid</div>
+        </div>
+      </div>
+      <div class="analytics-grid">
+        <div class="chart-card">
+          <div class="chart-title">📊 Spend by Category</div>
+          <div id="cat-list"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">📅 Monthly Trend</div>
+          <div class="bar-chart-wrap" id="bar-chart"></div>
+          <div style="margin-top:12px;font-size:12px;color:var(--text3)">Current month in green</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="view-settings" class="view">
+      <div class="settings-section">
+        <div class="settings-section-title">Notifications</div>
+        <div class="settings-row">
+          <div><div class="settings-row-label">Renewal Reminders</div><div class="settings-row-desc">3 days before each renewal</div></div>
+          <button class="toggle on" onclick="this.classList.toggle('on')"></button>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-row-label">Trial Expiry Alerts</div><div class="settings-row-desc">Alert when a free trial is ending soon</div></div>
+          <button class="toggle on" onclick="this.classList.toggle('on')"></button>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-row-label">Weekly Spending Summary</div><div class="settings-row-desc">Weekly digest of your subscription spend</div></div>
+          <button class="toggle" onclick="this.classList.toggle('on')"></button>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-row-label">Unused Service Alerts</div><div class="settings-row-desc">Alert when you haven't used a service in 30+ days</div></div>
+          <button class="toggle on" onclick="this.classList.toggle('on')"></button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-title">Connected Accounts</div>
+        <div class="settings-row">
+          <div><div class="settings-row-label">📧 Gmail</div><div class="settings-row-desc">Auto-scan receipts and subscription emails</div></div>
+          <button class="btn btn-blue btn-sm" onclick="openScan()">Connect</button>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-row-label">📬 Outlook</div><div class="settings-row-desc">Connect Microsoft email for scanning</div></div>
+          <button class="btn btn-ghost btn-sm">Connect</button>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-row-label">🏦 Bank Account</div><div class="settings-row-desc">Link bank via Plaid to catch missed subscriptions</div></div>
+          <button class="btn btn-ghost btn-sm">Connect</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-title">Account</div>
+        <div class="settings-row">
+          <div><div class="settings-row-label">Plan</div><div class="settings-row-desc">You're on the Pro plan — $4.99/month</div></div>
+          <button class="btn btn-ghost btn-sm">Manage</button>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-row-label">Currency</div><div class="settings-row-desc">Display currency for all amounts</div></div>
+          <select class="form-select" style="width:auto;padding:6px 10px;font-size:13px"><option>USD ($)</option><option>EUR (€)</option><option>GBP (£)</option><option>AED (د.إ)</option></select>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-row-label">Export Data</div><div class="settings-row-desc">Download all subscription data as CSV</div></div>
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV()">Export CSV</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Add Subscription</div>
+      <button class="modal-close" onclick="closeModal('add-modal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Service Name *</label>
+      <input class="form-input" id="inp-name" placeholder="e.g. Netflix, Spotify..."/>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Amount ($) *</label>
+        <input class="form-input" id="inp-amount" type="number" step="0.01" placeholder="0.00"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Billing Cycle</label>
+        <select class="form-select" id="inp-cycle">
+          <option value="monthly">Monthly</option>
+          <option value="yearly">Yearly</option>
+          <option value="weekly">Weekly</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select class="form-select" id="inp-cat">
+          <option>Entertainment</option><option>Productivity</option><option>Music</option>
+          <option>Cloud Storage</option><option>AI Tools</option><option>News & Media</option>
+          <option>Fitness</option><option>Education</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-select" id="inp-status" onchange="document.getElementById('trial-grp').style.display=this.value==='trial'?'block':'none'">
+          <option value="active">Active</option>
+          <option value="trial">Free Trial</option>
+          <option value="paused">Paused</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Next Renewal Date</label>
+      <input class="form-input" id="inp-date" type="date"/>
+    </div>
+    <div class="form-group" id="trial-grp" style="display:none">
+      <label class="form-label">Trial Days Remaining</label>
+      <input class="form-input" id="inp-tdays" type="number" placeholder="e.g. 14"/>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal('add-modal')">Cancel</button>
+      <button class="btn btn-accent" onclick="addSub()">Add Subscription</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCAN MODAL -->
+<div class="modal-overlay" id="scan-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">📧 Scan Gmail Inbox</div>
+      <button class="modal-close" onclick="closeModal('scan-modal')">✕</button>
+    </div>
+    <div id="scan-intro">
+      <p style="font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:20px">SubTrack scans your Gmail for subscription receipts. <strong style="color:var(--text)">We never store your emails.</strong> OAuth only — your password is never shared.</p>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:20px">
+        <div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">What we scan for</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.9">✓ Receipt & invoice emails<br>✓ "Your subscription" notifications<br>✓ Free trial confirmation emails<br>✓ Billing cycle reminders</div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="closeModal('scan-modal')">Cancel</button>
+        <button class="btn btn-accent" onclick="startScan()">🔐 Connect Gmail</button>
+      </div>
+    </div>
+    <div id="scan-prog" style="display:none">
+      <div class="scan-steps">
+        <div class="scan-step" id="ss1">
+          <span class="scan-step-icon">🔐</span>
+          <div><div class="scan-step-label">Authenticating with Google</div><div class="scan-step-sub">Secure OAuth 2.0</div></div>
+          <span class="scan-check" id="sc1" style="display:none">✓</span>
+        </div>
+        <div class="scan-step" id="ss2">
+          <span class="scan-step-icon">📨</span>
+          <div><div class="scan-step-label">Reading inbox</div><div class="scan-step-sub" id="scan-cnt">Scanning emails...</div></div>
+          <span class="scan-check" id="sc2" style="display:none">✓</span>
+        </div>
+        <div class="scan-step" id="ss3">
+          <span class="scan-step-icon">🤖</span>
+          <div><div class="scan-step-label">AI extracting subscriptions</div><div class="scan-step-sub">Identifying services & amounts</div></div>
+          <span class="scan-check" id="sc3" style="display:none">✓</span>
+        </div>
+      </div>
+      <div class="progress-wrap"><div class="progress-fill" id="scan-pb" style="width:0%"></div></div>
+      <div id="scan-results" style="display:none">
+        <div class="scan-found-wrap">
+          <div class="scan-found-hdr">🎉 Found Subscriptions</div>
+          <div id="scan-found-list"></div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button class="btn btn-ghost" onclick="closeModal('scan-modal')">Skip</button>
+          <button class="btn btn-accent" id="import-btn" onclick="importAll()">Add All Found Subs</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="notification" id="notif">
+  <span id="notif-icon">✅</span>
+  <span id="notif-text">Done!</span>
+</div>
+
+<script>
+// ── DATA ──
+let subs = [
+  {id:1,name:'Netflix',icon:'🎬',color:'#E50914',amount:15.49,cycle:'monthly',cat:'Entertainment',status:'active',date:nd(3)},
+  {id:2,name:'Spotify',icon:'🎵',color:'#1DB954',amount:9.99,cycle:'monthly',cat:'Music',status:'active',date:nd(8)},
+  {id:3,name:'ChatGPT Plus',icon:'🤖',color:'#10a37f',amount:20.00,cycle:'monthly',cat:'AI Tools',status:'trial',date:nd(2),tdays:2},
+  {id:4,name:'Adobe Creative Cloud',icon:'🎨',color:'#FF3366',amount:54.99,cycle:'monthly',cat:'Productivity',status:'active',date:nd(1)},
+  {id:5,name:'Notion Plus',icon:'📝',color:'#fff',amount:8.00,cycle:'monthly',cat:'Productivity',status:'active',date:nd(19)},
+];
+let nid=6;
+
+const SCAN_POOL=[
+  {name:'YouTube Premium',icon:'▶️',color:'#FF0000',amount:13.99,cycle:'monthly',cat:'Entertainment',status:'active',date:nd(5)},
+  {name:'iCloud+ 200GB',icon:'☁️',color:'#3478f6',amount:2.99,cycle:'monthly',cat:'Cloud Storage',status:'active',date:nd(12)},
+  {name:'Duolingo Plus',icon:'🦉',color:'#58cc02',amount:6.99,cycle:'monthly',cat:'Education',status:'trial',date:nd(7),tdays:7},
+  {name:'Figma Pro',icon:'🎨',color:'#F24E1E',amount:15.00,cycle:'monthly',cat:'Productivity',status:'active',date:nd(22)},
+];
+let scanFound=[];
+
+function nd(days){const d=new Date();d.setDate(d.getDate()+days);return d.toISOString().split('T')[0]}
+function fmtDate(s){return new Date(s+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+function daysTo(s){const t=new Date();t.setHours(0,0,0,0);return Math.ceil((new Date(s+'T00:00:00')-t)/86400000)}
+function monthly(s){if(s.cycle==='yearly')return s.amount/12;if(s.cycle==='weekly')return s.amount*4.33;return s.amount}
+
+// ── NAV ──
+const VIEWS=['dashboard','subscriptions','trials','analytics','settings'];
+const TITLES={
+  dashboard:['Dashboard','Welcome back, Alex 👋'],
+  subscriptions:['Subscriptions','Manage all your recurring charges'],
+  trials:['Free Trials','Track trials before they convert to paid'],
+  analytics:['Analytics','Understand your spending patterns'],
+  settings:['Settings','Customize your SubTrack experience'],
+};
+function navigate(v,el){
+  VIEWS.forEach(x=>document.getElementById('view-'+x).classList.remove('active'));
+  document.querySelectorAll('.sb-nav li').forEach(li=>li.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  if(el)el.classList.add('active');
+  document.getElementById('page-title').textContent=TITLES[v][0];
+  document.getElementById('page-sub').textContent=TITLES[v][1];
+  render();
+}
+
+// ── RENDER ──
+function render(){renderDash();renderSubList();renderTrials();renderAnalytics();updateBadges()}
+
+function updateBadges(){
+  document.getElementById('b-sub').textContent=subs.filter(s=>s.status!=='paused').length;
+  document.getElementById('b-trial').textContent=subs.filter(s=>s.status==='trial').length;
+}
+
+function renderDash(){
+  const active=subs.filter(s=>s.status!=='paused');
+  const mo=active.reduce((a,s)=>a+monthly(s),0);
+  const trials=subs.filter(s=>s.status==='trial');
+  const urgent=subs.filter(s=>daysTo(s.date)<=3&&s.status!=='paused').length;
+
+  document.getElementById('m-spend').textContent='$'+mo.toFixed(2);
+  document.getElementById('m-spend-s').textContent=urgent?`⚠ ${urgent} renewing soon`:'across all services';
+  document.getElementById('m-annual').textContent='$'+(mo*12).toFixed(0);
+  document.getElementById('m-active').textContent=active.length;
+  document.getElementById('m-active-s').textContent=subs.length+' total tracked';
+  document.getElementById('m-trials').textContent=trials.length;
+  document.getElementById('m-trials-s').textContent=trials.length?'watch these carefully!':'no active trials';
+
+  const ab=document.getElementById('alert-box');
+  ab.innerHTML='';
+  subs.filter(s=>daysTo(s.date)<=3&&s.status!=='paused').slice(0,2).forEach(s=>{
+    const d=daysTo(s.date);
+    const lbl=d<=0?'renews TODAY':d===1?'renews tomorrow':`renews in ${d} days`;
+    ab.innerHTML+=`<div class="alert-banner"><span style="font-size:18px">${s.icon}</span><span><strong>${s.name}</strong> ${lbl} — $${s.amount.toFixed(2)}/${s.cycle}</span><span class="alert-close" onclick="this.parentElement.remove()">✕</span></div>`;
+  });
+
+  const rl=document.getElementById('renewal-list');
+  if(!subs.length){rl.innerHTML=`<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-title">No subscriptions yet</div><div class="empty-desc">Add your first subscription or scan your Gmail inbox to get started.</div><button class="btn btn-accent" onclick="openAdd()">+ Add Subscription</button></div>`;return}
+  const sorted=[...subs].sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,5);
+  rl.innerHTML=`<div class="table-hr"><span>SERVICE</span><span>AMOUNT</span><span>BILLING</span><span>STATUS</span><span></span></div><div class="sub-list">${sorted.map(rowHTML).join('')}</div>`;
+}
+
+function rowHTML(s){
+  const d=daysTo(s.date);
+  let badge='';
+  if(s.status==='trial')badge=`<span class="badge badge-trial">⏳ Trial</span>`;
+  else if(s.status==='paused')badge=`<span class="badge badge-paused">⏸ Paused</span>`;
+  else if(d<=3)badge=`<span class="badge badge-renew">🔴 ${d<=0?'Today':d===1?'Tomorrow':d+' days'}</span>`;
+  else badge=`<span class="badge badge-active">✓ Active</span>`;
+  const dt=d<=0?'<span style="color:var(--red)">Today</span>':d===1?'<span style="color:var(--amber)">Tomorrow</span>':`<span style="color:var(--text2)">${fmtDate(s.date)}</span>`;
+  return `<div class="sub-row"><div class="sn-cell"><div class="sub-icon" style="background:${s.color}22">${s.icon}</div><div><div class="sub-name-text">${s.name}</div><div class="sub-cat">${s.cat}</div></div></div><div class="sub-amount">$${s.amount.toFixed(2)} <span>/${s.cycle}</span></div><div>${dt}</div><div>${badge}</div><div class="sub-actions"><button class="action-btn" onclick="togglePause(${s.id})" title="${s.status==='paused'?'Resume':'Pause'}">${s.status==='paused'?'▶':'⏸'}</button><button class="action-btn del" onclick="deleteSub(${s.id})" title="Delete">🗑</button></div></div>`;
+}
+
+function renderSubList(){
+  const el=document.getElementById('sub-list');
+  if(!subs.length){el.innerHTML=`<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No subscriptions added</div><div class="empty-desc">Click "Add New" or scan your email to find subscriptions.</div></div>`;return}
+  el.innerHTML=subs.map(rowHTML).join('');
+}
+
+function renderTrials(){
+  const tg=document.getElementById('trials-grid');
+  const trials=subs.filter(s=>s.status==='trial');
+  if(!trials.length){tg.innerHTML=`<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">⏳</div><div class="empty-title">No active trials</div><div class="empty-desc">Add a free trial subscription to track when it converts to paid.</div></div>`;return}
+  tg.innerHTML=trials.map(s=>{
+    const d=s.tdays||daysTo(s.date);
+    const cls=d<=2?'urgent':d<=5?'warning':'';
+    const col=d<=2?'var(--red)':d<=5?'var(--amber)':'var(--accent)';
+    return `<div class="trial-card ${cls}"><div class="trial-top"><span style="font-size:28px">${s.icon}</span><div style="text-align:right"><div class="trial-days" style="color:${col}">${d}</div><div style="font-size:11px;color:var(--text3)">days left</div></div></div><div class="trial-name">${s.name}</div><div class="trial-detail">${s.cat} · Converts ${fmtDate(s.date)}</div><div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:12px">Charges $${s.amount.toFixed(2)}/${s.cycle} after trial</div><div style="display:flex;gap:8px"><button class="btn btn-danger btn-sm" style="flex:1" onclick="deleteSub(${s.id})">Cancel Trial</button><button class="btn btn-ghost btn-sm" onclick="activate(${s.id})">Keep It</button></div></div>`;
+  }).join('');
+}
+
+function renderAnalytics(){
+  const active=subs.filter(s=>s.status!=='paused');
+  const mo=active.reduce((a,s)=>a+monthly(s),0);
+  document.getElementById('a-monthly').textContent='$'+mo.toFixed(2);
+  document.getElementById('a-daily').textContent='$'+(mo/30).toFixed(2);
+  if(subs.length){const top=subs.reduce((a,b)=>monthly(a)>monthly(b)?a:b);document.getElementById('a-top').textContent=top.name;document.getElementById('a-top-s').textContent='$'+top.amount+'/'+top.cycle;}
+  const risk=subs.filter(s=>s.status==='trial').reduce((a,s)=>a+s.amount,0);
+  document.getElementById('a-risk').textContent='$'+risk.toFixed(2);
+
+  const cats={};active.forEach(s=>{cats[s.cat]=(cats[s.cat]||0)+monthly(s)});
+  const COLORS=['#00e5a0','#4f8ef7','#f5a623','#ff5f5f','#9b78f8','#00b4d8','#fb923c'];
+  const cl=document.getElementById('cat-list');
+  const entries=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
+  const mx=entries[0]?.[1]||1;
+  if(!entries.length){cl.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px">Add subscriptions to see analytics</div>';return}
+  cl.innerHTML=entries.map(([c,a],i)=>`<div class="cat-item"><div class="cat-dot" style="background:${COLORS[i%COLORS.length]}"></div><div class="cat-name">${c}</div><div class="cat-bar-wrap"><div class="cat-bar" style="width:${(a/mx*100).toFixed(0)}%;background:${COLORS[i%COLORS.length]}"></div></div><div class="cat-amount">$${a.toFixed(2)}</div></div>`).join('');
+
+  const bc=document.getElementById('bar-chart');
+  const months=['Jan','Feb','Mar','Apr','May'];
+  const heights=[28,42,35,55,80];
+  bc.innerHTML=months.map((m,i)=>`<div class="bar-col"><div class="bar-fill" style="height:${heights[i]}%;background:${i===4?'linear-gradient(180deg,var(--accent),rgba(0,229,160,.4))':'linear-gradient(180deg,var(--blue),rgba(79,142,247,.4))'}"></div><div class="bar-lbl">${m}</div></div>`).join('');
+}
+
+// ── ACTIONS ──
+function deleteSub(id){const s=subs.find(x=>x.id===id);subs=subs.filter(x=>x.id!==id);render();toast('🗑',`${s?.name} removed`)}
+function togglePause(id){const s=subs.find(x=>x.id===id);if(!s)return;s.status=s.status==='paused'?'active':'paused';render();toast(s.status==='paused'?'⏸':'▶',`${s.name} ${s.status}`)}
+function activate(id){const s=subs.find(x=>x.id===id);if(!s)return;s.status='active';delete s.tdays;render();toast('✅',`${s.name} moved to active`)}
+
+// ── ADD ──
+function openAdd(){
+  const d=new Date();d.setDate(d.getDate()+30);
+  document.getElementById('inp-date').value=d.toISOString().split('T')[0];
+  document.getElementById('inp-name').value='';
+  document.getElementById('inp-amount').value='';
+  document.getElementById('inp-status').value='active';
+  document.getElementById('trial-grp').style.display='none';
+  openModal('add-modal');
+  setTimeout(()=>document.getElementById('inp-name').focus(),300);
+}
+
+function addSub(){
+  const name=document.getElementById('inp-name').value.trim();
+  const amount=parseFloat(document.getElementById('inp-amount').value);
+  const cycle=document.getElementById('inp-cycle').value;
+  const cat=document.getElementById('inp-cat').value;
+  const status=document.getElementById('inp-status').value;
+  const date=document.getElementById('inp-date').value;
+  const tdays=parseInt(document.getElementById('inp-tdays').value)||null;
+  if(!name)return toast('❌','Please enter a service name');
+  if(!amount||amount<=0)return toast('❌','Please enter a valid amount');
+  if(!date)return toast('❌','Please select a renewal date');
+  const ICONS={Entertainment:'🎬',Music:'🎵',Productivity:'📝','Cloud Storage':'☁️','AI Tools':'🤖','News & Media':'📰',Fitness:'💪',Education:'📚',Other:'📦'};
+  const COLS={Entertainment:'#E50914',Music:'#1DB954',Productivity:'#6366f1','Cloud Storage':'#3478f6','AI Tools':'#10a37f','News & Media':'#6b7280',Fitness:'#f97316',Education:'#8b5cf6',Other:'#6b7280'};
+  const sub={id:nid++,name,icon:ICONS[cat]||'📦',color:COLS[cat]||'#6b7280',amount,cycle,cat,status,date};
+  if(status==='trial'&&tdays)sub.tdays=tdays;
+  subs.push(sub);
+  closeModal('add-modal');
+  render();
+  toast('✅',`${name} added!`);
+}
+
+// ── SCAN ──
+function openScan(){
+  document.getElementById('scan-intro').style.display='';
+  document.getElementById('scan-prog').style.display='none';
+  document.getElementById('scan-results').style.display='none';
+  document.getElementById('scan-found-list').innerHTML='';
+  document.getElementById('scan-pb').style.width='0%';
+  ['ss1','ss2','ss3'].forEach(id=>document.getElementById(id).className='scan-step');
+  ['sc1','sc2','sc3'].forEach(id=>document.getElementById(id).style.display='none');
+  scanFound=[];
+  openModal('scan-modal');
+}
+
+function startScan(){
+  document.getElementById('scan-intro').style.display='none';
+  document.getElementById('scan-prog').style.display='';
+  const existing=subs.map(s=>s.name.toLowerCase());
+  scanFound=SCAN_POOL.filter(s=>!existing.includes(s.name.toLowerCase()));
+
+  setTimeout(()=>{document.getElementById('ss1').classList.add('active-step');document.getElementById('scan-pb').style.width='25%'},200);
+  setTimeout(()=>{document.getElementById('ss1').classList.add('done');document.getElementById('sc1').style.display='';document.getElementById('ss2').classList.add('active-step');document.getElementById('scan-pb').style.width='50%'},1200);
+
+  let c=0;const iv=setInterval(()=>{c+=Math.floor(Math.random()*160)+60;document.getElementById('scan-cnt').textContent=`Scanned ${c.toLocaleString()} emails...`;if(c>=2900)clearInterval(iv)},200);
+
+  setTimeout(()=>{clearInterval(iv);document.getElementById('scan-cnt').textContent='Scanned 3,142 emails';document.getElementById('ss2').classList.add('done');document.getElementById('sc2').style.display='';document.getElementById('ss3').classList.add('active-step');document.getElementById('scan-pb').style.width='75%'},2800);
+
+  setTimeout(()=>{
+    document.getElementById('ss3').classList.add('done');document.getElementById('sc3').style.display='';document.getElementById('scan-pb').style.width='100%';
+    document.getElementById('scan-results').style.display='';
+    if(!scanFound.length){document.getElementById('scan-found-list').innerHTML='<div style="padding:16px;font-size:13px;color:var(--text3);text-align:center">All subscriptions are already tracked! ✓</div>';document.getElementById('import-btn').style.display='none';return}
+    const fl=document.getElementById('scan-found-list');
+    document.getElementById('import-btn').style.display='';
+    scanFound.forEach((s,i)=>setTimeout(()=>{fl.innerHTML+=`<div class="scan-found-item"><div class="sub-icon" style="background:${s.color}22;width:32px;height:32px;border-radius:8px">${s.icon}</div><div class="scan-found-info"><div class="scan-found-name">${s.name}</div><div class="scan-found-detail">$${s.amount.toFixed(2)}/${s.cycle} · ${s.status==='trial'?'⏳ Free trial':'Active'}</div></div><div style="font-weight:700;font-size:12px;color:${s.status==='trial'?'var(--amber)':'var(--accent)'}">${s.status==='trial'?'TRIAL':'NEW'}</div></div>`;},i*350));
+  },4200);
+}
+
+function importAll(){
+  scanFound.forEach(s=>subs.push({...s,id:nid++}));
+  closeModal('scan-modal');render();
+  toast('🎉',`${scanFound.length} subscription${scanFound.length>1?'s':''} imported!`);
+}
+
+function exportCSV(){
+  const rows=[['Name','Category','Amount','Cycle','Status','Renewal Date'],...subs.map(s=>[s.name,s.cat,s.amount.toFixed(2),s.cycle,s.status,s.date])];
+  const blob=new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='subtrack-export.csv';a.click();
+  toast('📊','CSV exported!');
+}
+
+// ── MODAL & NOTIF ──
+function openModal(id){document.getElementById(id).classList.add('open')}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open')}));
+let nt;
+function toast(icon,text){
+  const n=document.getElementById('notif');
+  document.getElementById('notif-icon').textContent=icon;
+  document.getElementById('notif-text').textContent=text;
+  n.classList.add('show');clearTimeout(nt);nt=setTimeout(()=>n.classList.remove('show'),3000);
+}
+
+render();
+</script>
+</body>
+</html>
