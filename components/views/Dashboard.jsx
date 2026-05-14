@@ -148,7 +148,7 @@ export default function Dashboard({ onOpenAdd }) {
               </div>
             </>
           ) : (
-            <div className="empty-desc">Add your first subscription or scan your Gmail inbox to get started.</div>
+            <div className="empty-desc">Scan your Gmail inbox to get started.</div>
           )}
         </div>
       ) : (

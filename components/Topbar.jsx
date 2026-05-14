@@ -52,9 +52,6 @@ export default function Topbar({ view, onOpenAdd, onOpenScan }) {
             </div>
           </>
         )}
-        {session && (
-          <button className="btn btn-accent" onClick={onOpenAdd}>+ Add Subscription</button>
-        )}
       </div>
     </div>
   );

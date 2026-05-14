@@ -34,9 +34,6 @@ export default function Subscriptions({ onOpenAdd }) {
           >
             💰 {saveModeOn ? 'Exit Save Mode' : 'Save Money Mode'}
           </button>
-          {session && (
-            <button className="btn btn-accent btn-sm" onClick={onOpenAdd}>+ Add New</button>
-          )}
         </div>
       </div>
 
@@ -120,7 +117,7 @@ export default function Subscriptions({ onOpenAdd }) {
               </div>
             </>
           ) : (
-            <div className="empty-desc">Click "Add New" or scan your email to find subscriptions.</div>
+            <div className="empty-desc">Scan your email to find subscriptions.</div>
           )}
         </div>
       ) : (
