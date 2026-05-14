@@ -109,7 +109,7 @@ export default function ScanModal({ isOpen, onClose }) {
         {phase === 'intro' && (
           <div>
             <p style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 20 }}>
-              SubTrack reads your Gmail for real subscription receipts.{' '}
+              Substracker reads your Gmail for real subscription receipts.{' '}
               <strong style={{ color: 'var(--text)' }}>We never store your emails.</strong>{' '}
               OAuth only — your password is never shared.
             </p>

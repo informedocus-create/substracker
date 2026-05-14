@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { useSession, signIn } from 'next-auth/react';
 import { useSubs } from '@/lib/context';
 import { monthly } from '@/lib/helpers';
 import { getCancelGuide } from '@/lib/cancelGuides';
@@ -8,6 +9,7 @@ import CancelGuideModal from '@/components/modals/CancelGuideModal';
 
 export default function Subscriptions({ onOpenAdd }) {
   const { subs } = useSubs();
+  const { data: session } = useSession();
   const [saveModeOn, setSaveModeOn] = useState(false);
   const [cancelSub, setCancelSub]   = useState(null);
 
@@ -32,7 +34,9 @@ export default function Subscriptions({ onOpenAdd }) {
           >
             💰 {saveModeOn ? 'Exit Save Mode' : 'Save Money Mode'}
           </button>
-          <button className="btn btn-accent btn-sm" onClick={onOpenAdd}>+ Add New</button>
+          {session && (
+            <button className="btn btn-accent btn-sm" onClick={onOpenAdd}>+ Add New</button>
+          )}
         </div>
       </div>
 
@@ -108,7 +112,16 @@ export default function Subscriptions({ onOpenAdd }) {
         <div className="empty-state">
           <div className="empty-icon">📋</div>
           <div className="empty-title">No subscriptions added</div>
-          <div className="empty-desc">Click "Add New" or scan your email to find subscriptions.</div>
+          {!session ? (
+            <>
+              <div className="empty-desc">Sign in to add subscriptions and unlock money-saving features.</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
+                <button className="btn btn-accent" onClick={() => signIn('google')}>Sign in</button>
+              </div>
+            </>
+          ) : (
+            <div className="empty-desc">Click "Add New" or scan your email to find subscriptions.</div>
+          )}
         </div>
       ) : (
         <>

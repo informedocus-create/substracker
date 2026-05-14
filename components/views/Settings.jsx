@@ -1,9 +1,11 @@
 'use client';
 import Toggle from '@/components/ui/Toggle';
 import { useSubs } from '@/lib/context';
+import { useSession } from 'next-auth/react';
 
 export default function Settings({ onOpenScan }) {
   const { exportCSV } = useSubs();
+  const { data: session } = useSession();
 
   return (
     <div className="view-enter">
@@ -69,13 +71,6 @@ export default function Settings({ onOpenScan }) {
       {/* Account */}
       <div className="settings-section">
         <div className="settings-section-title">Account</div>
-        <div className="settings-row">
-          <div>
-            <div className="settings-row-label">Plan</div>
-            <div className="settings-row-desc">You&apos;re on the Pro plan — $4.99/month</div>
-          </div>
-          <button className="btn btn-ghost btn-sm">Manage</button>
-        </div>
         <div className="settings-row">
           <div>
             <div className="settings-row-label">Currency</div>

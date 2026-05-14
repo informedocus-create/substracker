@@ -150,7 +150,7 @@ export default function CancelGuideModal({ sub, isOpen, onClose }) {
                 className="btn btn-danger"
                 onClick={() => setStep('confirm')}
               >
-                Remove from SubTrack
+                Remove from Substracker
               </button>
             </div>
           </>
@@ -164,7 +164,7 @@ export default function CancelGuideModal({ sub, isOpen, onClose }) {
             }}>
               <div style={{ fontSize: 28, marginBottom: 8 }}>⚠️</div>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
-                Remove {sub.name} from SubTrack?
+                Remove {sub.name} from Substracker?
               </div>
               <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>
                 This only removes it from your dashboard. You still need to cancel it directly with {sub.name} to stop being charged.

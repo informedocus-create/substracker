@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signIn } from 'next-auth/react';
 import { useSubs } from '@/lib/context';
 import { daysTo, monthly } from '@/lib/helpers';
 import MetricCard from '@/components/ui/MetricCard';
@@ -97,43 +97,59 @@ export default function Dashboard({ onOpenAdd }) {
       <div className="metrics-grid">
         <MetricCard
           label="Monthly Spend"
-          value={`$${mo.toFixed(2)}`}
-          sub={visibleAlerts.length
+          value={!session ? "$24.99" : `$${mo.toFixed(2)}`}
+          sub={!session ? "across all services" : (visibleAlerts.length
             ? `⚠ ${visibleAlerts.length} renewing soon`
-            : 'across all services'}
+            : 'across all services')}
           color="var(--red)"
+          locked={!session}
+          lockText="Sign in to see your spend"
         />
         <MetricCard
           label="Annual Projection"
-          value={`$${(mo * 12).toFixed(0)}`}
+          value={!session ? "$299" : `$${(mo * 12).toFixed(0)}`}
           sub="at current monthly rate"
+          locked={!session}
+          lockText="Sign in to view"
         />
         <MetricCard
           label="Active Subscriptions"
-          value={active.length}
-          sub={`${subs.length} total tracked`}
+          value={!session ? "5" : active.length}
+          sub={!session ? "total tracked" : `${subs.length} total tracked`}
           color="var(--accent)"
+          locked={!session}
+          lockText="Sign in to view"
         />
         <MetricCard
           label="Trials Expiring"
-          value={trials.length}
-          sub={trials.length ? 'watch these carefully!' : 'no active trials'}
+          value={!session ? "2" : trials.length}
+          sub={!session ? "expiring soon" : (trials.length ? 'watch these carefully!' : 'no active trials')}
           color="var(--amber)"
+          locked={!session}
+          lockText="Sign in to view"
         />
       </div>
 
       {/* ── Upcoming renewals ── */}
       <div className="section-heading">
         <div className="section-title">🔔 Upcoming Renewals</div>
-        <button className="btn btn-ghost btn-sm">View all →</button>
+        {session && <button className="btn btn-ghost btn-sm">View all →</button>}
       </div>
 
       {!subs.length ? (
         <div className="empty-state">
           <div className="empty-icon">📭</div>
           <div className="empty-title">No subscriptions yet</div>
-          <div className="empty-desc">Add your first subscription or scan your Gmail inbox to get started.</div>
-          <button className="btn btn-accent" onClick={onOpenAdd}>+ Add Subscription</button>
+          {!session ? (
+            <>
+              <div className="empty-desc">Sign in to start tracking your subscriptions and catch upcoming renewals.</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
+                <button className="btn btn-accent" onClick={() => signIn('google')}>Sign in to get started</button>
+              </div>
+            </>
+          ) : (
+            <div className="empty-desc">Add your first subscription or scan your Gmail inbox to get started.</div>
+          )}
         </div>
       ) : (
         <>

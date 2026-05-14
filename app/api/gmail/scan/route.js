@@ -31,11 +31,11 @@ const LIFECYCLE_SIGNALS = [
 function calculateConfidence(signals) {
   let score = 0;
 
-  if (signals.paymentEmail)     score += 25; // Strong: real money moved
-  if (signals.keywords)         score += 10; // Weak: sub-related language
-  if (signals.multiEmails)      score += 20; // Medium: merchant consistency
+  if (signals.paymentEmail) score += 25; // Strong: real money moved
+  if (signals.keywords) score += 10; // Weak: sub-related language
+  if (signals.multiEmails) score += 20; // Medium: merchant consistency
   if (signals.recurringPattern) score += 35; // Strongest: time-based recurrence
-  if (signals.multipleBills)    score += 10; // Bonus: multiple payment receipts
+  if (signals.multipleBills) score += 10; // Bonus: multiple payment receipts
 
   return Math.min(score, 100);
 }
@@ -46,8 +46,8 @@ function calculateConfidence(signals) {
  * 61–100 → confirmed (strong recurring billing)
  */
 function classifyConfidence(pct) {
-  if (pct <= 30)  return "ignored";
-  if (pct <= 60)  return "possible";
+  if (pct <= 30) return "ignored";
+  if (pct <= 60) return "possible";
   return "confirmed";
 }
 
@@ -111,12 +111,12 @@ function isRecurring(dates) {
     gaps.push((sorted[i] - sorted[i - 1]) / 86_400_000);
   }
   return gaps.some((g) => g >= 25 && g <= 35) ||
-         gaps.some((g) => g >= 340 && g <= 390);
+    gaps.some((g) => g >= 340 && g <= 390);
 }
 
 function scoreEmail(text) {
   const lower = text.toLowerCase();
-  const hasPayment   = PAYMENT_SIGNALS.some((p) => lower.includes(p));
+  const hasPayment = PAYMENT_SIGNALS.some((p) => lower.includes(p));
   const hasLifecycle = LIFECYCLE_SIGNALS.some((p) => lower.includes(p));
   return { hasPayment, hasLifecycle };
 }
@@ -180,16 +180,16 @@ function extractRenewalDate(text) {
  */
 export function shouldAlert(nextBillingDate) {
   if (!nextBillingDate) return null;
-  const today   = new Date();
+  const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const renewal  = new Date(nextBillingDate);
+  const renewal = new Date(nextBillingDate);
   renewal.setHours(0, 0, 0, 0);
   const diffDays = Math.ceil((renewal - today) / 86_400_000);
 
   if (diffDays < 0 || diffDays > 5) return null;
   return {
     daysAway: diffDays,
-    type:     diffDays === 0 ? 'today' : diffDays === 1 ? 'tomorrow' : 'upcoming',
+    type: diffDays === 0 ? 'today' : diffDays === 1 ? 'tomorrow' : 'upcoming',
   };
 }
 
@@ -227,8 +227,8 @@ export async function GET() {
           const headers = payload.headers;
 
           const subject = getHeader(headers, "Subject") || "";
-          const from    = getHeader(headers, "From")    || "";
-          const dateStr = getHeader(headers, "Date")    || "";
+          const from = getHeader(headers, "From") || "";
+          const dateStr = getHeader(headers, "Date") || "";
 
           let body = "";
           if (payload.parts) {
@@ -239,7 +239,7 @@ export async function GET() {
           }
 
           const fullText = `${subject} ${from} ${body}`;
-          const service  = matchService(normalizeMerchant(fullText));
+          const service = matchService(normalizeMerchant(fullText));
           if (!service) return null;
 
           const { hasPayment, hasLifecycle } = scoreEmail(fullText);
@@ -253,7 +253,7 @@ export async function GET() {
 
           return {
             msgId: msg.id, service,
-            emailDate:            isNaN(emailDate) ? null : emailDate,
+            emailDate: isNaN(emailDate) ? null : emailDate,
             extractedRenewalDate, // explicit date from email text (may be null)
             hasPayment, hasLifecycle, amount, subject, from,
           };
@@ -282,26 +282,26 @@ export async function GET() {
 
     for (const [name, g] of Object.entries(groups)) {
       const { emails, service, bestAmount } = g;
-      const emailCount     = emails.length;
-      const paymentCount   = emails.filter((e) => e.hasPayment).length;
-      const validDates     = emails.map((e) => e.emailDate).filter(Boolean);
-      const recurring      = isRecurring(validDates);
+      const emailCount = emails.length;
+      const paymentCount = emails.filter((e) => e.hasPayment).length;
+      const validDates = emails.map((e) => e.emailDate).filter(Boolean);
+      const recurring = isRecurring(validDates);
 
       // Build signal flags for confidence + explanation
       const signals = {
-        paymentEmail:     paymentCount >= 1,
-        keywords:         emails.some((e) => e.hasLifecycle),
-        multiEmails:      emailCount >= 2,
+        paymentEmail: paymentCount >= 1,
+        keywords: emails.some((e) => e.hasLifecycle),
+        multiEmails: emailCount >= 2,
         recurringPattern: recurring,
-        multipleBills:    paymentCount >= 2,
+        multipleBills: paymentCount >= 2,
       };
 
       const confidence = calculateConfidence(signals);
-      const level      = classifyConfidence(confidence);
-      const reasons    = buildExplanation(signals, emailCount);
+      const level = classifyConfidence(confidence);
+      const reasons = buildExplanation(signals, emailCount);
 
       if (level === "ignored") {
-        console.log(`[Scan] IGNORED "${name}" — ${confidence}% (${reasons.filter(r=>r.startsWith("✖")).join(" | ")})`);
+        console.log(`[Scan] IGNORED "${name}" — ${confidence}% (${reasons.filter(r => r.startsWith("✖")).join(" | ")})`);
         continue;
       }
 
@@ -325,33 +325,33 @@ export async function GET() {
       const renewalISO = renewalDate?.toISOString().split("T")[0] || null;
 
       // STEP 5B: Alert flag
-      const today     = new Date(); today.setHours(0, 0, 0, 0);
-      const renewal   = renewalDate ? new Date(renewalDate) : null;
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const renewal = renewalDate ? new Date(renewalDate) : null;
       if (renewal) renewal.setHours(0, 0, 0, 0);
       const daysUntilRenewal = renewal ? Math.ceil((renewal - today) / 86_400_000) : null;
       const alert = shouldAlert(renewalISO);
 
       results.push({
         // Core subscription fields
-        id:     latest.msgId,
-        name:   service.name,
-        icon:   service.icon,
-        color:  service.color,
+        id: latest.msgId,
+        name: service.name,
+        icon: service.icon,
+        color: service.color,
         amount: bestAmount || 9.99,
-        cycle:  "monthly",
-        cat:    service.cat,
+        cycle: "monthly",
+        cat: service.cat,
         status: "active",
-        date:   renewalISO,
+        date: renewalISO,
 
         // Intelligence layer (Steps 4 + 5)
         confidence,
         level,
         reasons,
         emailCount,
-        signals:          Object.keys(signals).filter((k) => signals[k]),
+        signals: Object.keys(signals).filter((k) => signals[k]),
         daysUntilRenewal,
         alert,            // null | { daysAway, type }
-        explicitDate:     !!explicitDates[0], // true if we found the date in email text
+        explicitDate: !!explicitDates[0], // true if we found the date in email text
       });
     }
 

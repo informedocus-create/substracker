@@ -1,47 +1,34 @@
 'use client';
-import { useState } from 'react';
-import Sidebar from '@/components/Sidebar';
-import Topbar from '@/components/Topbar';
-import Toast from '@/components/ui/Toast';
-import AddModal from '@/components/modals/AddModal';
-import ScanModal from '@/components/modals/ScanModal';
-import Dashboard from '@/components/views/Dashboard';
-import Subscriptions from '@/components/views/Subscriptions';
-import Trials from '@/components/views/Trials';
-import Analytics from '@/components/views/Analytics';
-import Settings from '@/components/views/Settings';
+import { useEffect } from 'react';
+import { useSession, signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
-export default function Home() {
-  const [view, setView]       = useState('dashboard');
-  const [addOpen, setAddOpen] = useState(false);
-  const [scanOpen, setScanOpen] = useState(false);
+export default function Landing() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
-  const views = {
-    dashboard:     <Dashboard     onOpenAdd={() => setAddOpen(true)} />,
-    subscriptions: <Subscriptions onOpenAdd={() => setAddOpen(true)} />,
-    trials:        <Trials        onOpenAdd={() => setAddOpen(true)} />,
-    analytics:     <Analytics />,
-    settings:      <Settings      onOpenScan={() => setScanOpen(true)} />,
-  };
+  useEffect(() => {
+    if (status === 'authenticated') {
+      router.push('/dashboard');
+    }
+  }, [status, router]);
+
+  if (status === 'loading' || status === 'authenticated') return null;
 
   return (
-    <>
-      <Sidebar active={view} onNavigate={setView} />
-
-      <div className="main">
-        <Topbar
-          view={view}
-          onOpenAdd={() => setAddOpen(true)}
-          onOpenScan={() => setScanOpen(true)}
-        />
-        <div className="content">
-          {views[view]}
-        </div>
+    <div className="landing-page">
+      <div className="hero">
+        <h1>Track every subscription.<br/>Never get surprised again.</h1>
+        <p>Substracker automatically finds your subscriptions, tracks renewals, and alerts you before you're charged.</p>
+        <button onClick={() => signIn('google')}>Get Started Free →</button>
       </div>
 
-      <AddModal  isOpen={addOpen}  onClose={() => setAddOpen(false)} />
-      <ScanModal isOpen={scanOpen} onClose={() => setScanOpen(false)} />
-      <Toast />
-    </>
+      <div className="features">
+        <div className="feature-card">⚡ Auto-detect via Gmail</div>
+        <div className="feature-card">🔔 Renewal alerts</div>
+        <div className="feature-card">📊 Spending analytics</div>
+        <div className="feature-card">🆓 Free trial tracker</div>
+      </div>
+    </div>
   );
 }

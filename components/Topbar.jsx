@@ -6,12 +6,21 @@ const TITLES = {
   subscriptions: ['Subscriptions', 'Manage all your recurring charges'],
   trials:        ['Free Trials',   'Track trials before they convert to paid'],
   analytics:     ['Analytics',     'Understand your spending patterns'],
-  settings:      ['Settings',      'Customize your SubTrack experience'],
+  settings:      ['Settings',      'Customize your Substracker experience'],
 };
 
 export default function Topbar({ view, onOpenAdd, onOpenScan }) {
   const { data: session } = useSession();
-  const [title, sub] = TITLES[view] ?? ['', ''];
+  
+  const firstName = session?.user?.name?.split(' ')[0] || '';
+  const welcomeMsg = firstName ? `Welcome back, ${firstName} 👋` : 'Welcome 👋';
+  
+  const dynamicTitles = {
+    ...TITLES,
+    dashboard: ['Dashboard', welcomeMsg]
+  };
+
+  const [title, sub] = dynamicTitles[view] ?? ['', ''];
 
   return (
     <div className="topbar">
@@ -21,8 +30,8 @@ export default function Topbar({ view, onOpenAdd, onOpenScan }) {
       </div>
       <div className="topbar-actions">
         {!session ? (
-          <button className="btn btn-blue" onClick={() => signIn("google")}>
-            📧 Connect Gmail
+          <button className="btn btn-accent" onClick={() => signIn("google")}>
+            Sign In
           </button>
         ) : (
           <>
@@ -43,7 +52,9 @@ export default function Topbar({ view, onOpenAdd, onOpenScan }) {
             </div>
           </>
         )}
-        <button className="btn btn-accent" onClick={onOpenAdd}>+ Add Subscription</button>
+        {session && (
+          <button className="btn btn-accent" onClick={onOpenAdd}>+ Add Subscription</button>
+        )}
       </div>
     </div>
   );

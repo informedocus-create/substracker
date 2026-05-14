@@ -7,7 +7,7 @@ import { DEFAULT_SUBS, CATEGORY_ICONS, CATEGORY_COLORS } from './data';
 import { KNOWN_SERVICES } from './services';
 
 const SubsContext = createContext(null);
-const STORAGE_KEY = 'subtrack_subs';
+const STORAGE_KEY = 'substracker_subs';
 
 export function SubsProvider({ children }) {
   const { data: session } = useSession();
@@ -50,12 +50,20 @@ export function SubsProvider({ children }) {
           const saved = localStorage.getItem(STORAGE_KEY);
           if (saved) {
             const parsed = JSON.parse(saved);
-            setSubs(parsed.subs || DEFAULT_SUBS);
+            // Detect old hardcoded mock data and wipe it
+            const isMockData = parsed.subs?.some?.(s => s.name === 'Netflix' && s.amount === 15.49);
+            
+            if (isMockData) {
+              setSubs([]);
+              localStorage.removeItem(STORAGE_KEY);
+            } else {
+              setSubs(parsed.subs || []);
+            }
           } else {
-            setSubs(DEFAULT_SUBS);
+            setSubs([]);
           }
         } catch (_) {
-          setSubs(DEFAULT_SUBS);
+          setSubs([]);
         }
       }
       hydrated.current = true;
@@ -225,7 +233,7 @@ export function SubsProvider({ children }) {
     const blob = new Blob([rows.map(r => r.join(',')).join('\n')], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'subtrack-export.csv';
+    a.download = 'substracker-export.csv';
     a.click();
     showToast('📊', 'CSV exported!');
   }, [subs, showToast]);

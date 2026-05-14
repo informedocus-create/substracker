@@ -204,8 +204,40 @@ body {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 18px 20px;
   transition: border-color .2s;
+  position: relative;
+  overflow: hidden;
 }
 .metric-card:hover { border-color: var(--border2); }
+
+.metric-card.locked .stat-blur {
+  filter: blur(6px);
+  user-select: none;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.lock-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  gap: 6px;
+}
+
+.lock-icon {
+  font-size: 20px;
+}
+
+.lock-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  text-align: center;
+  opacity: 0.9;
+}
 .mc-label {
   font-size: 11px; font-weight: 700; letter-spacing: 1px;
   text-transform: uppercase; color: var(--text3); margin-bottom: 10px;
@@ -426,3 +458,71 @@ body {
   min-width: 280px;
 }
 .notification.show { transform: translateY(0); opacity: 1; }
+
+/* ── LANDING PAGE ── */
+.landing-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  width: 100%;
+  overflow-y: auto;
+}
+
+.hero {
+  text-align: center;
+  padding: 80px 20px 40px;
+}
+
+.hero h1 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 16px;
+  color: #fff;
+}
+
+.hero p {
+  font-size: 1.1rem;
+  color: #aaa;
+  max-width: 500px;
+  margin: 0 auto 32px;
+}
+
+.hero button {
+  background: var(--accent);
+  color: #000;
+  border: none;
+  padding: 14px 32px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.hero button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px var(--accent-glow);
+}
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  max-width: 500px;
+  margin: 40px auto;
+  padding: 0 20px;
+}
+
+.feature-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+  font-weight: 600;
+  color: #fff;
+}
