@@ -19,6 +19,7 @@ export default function Home() {
   const [view, setView]       = useState('dashboard');
   const [addOpen, setAddOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -38,13 +39,21 @@ export default function Home() {
 
   return (
     <>
-      <Sidebar active={view} onNavigate={setView} />
+      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+
+      <Sidebar 
+        active={view} 
+        onNavigate={(v) => { setView(v); setSidebarOpen(false); }} 
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
       <div className="main">
         <Topbar
           view={view}
           onOpenAdd={() => setAddOpen(true)}
           onOpenScan={() => setScanOpen(true)}
+          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         />
         <div className="content">
           {views[view]}

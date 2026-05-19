@@ -10,7 +10,7 @@ const NAV = [
   { id: 'settings',      icon: '⚙️', label: 'Settings' },
 ];
 
-export default function Sidebar({ active, onNavigate }) {
+export default function Sidebar({ active, onNavigate, isOpen, onClose }) {
   const { subs } = useSubs();
   const { data: session } = useSession();
 
@@ -24,10 +24,11 @@ export default function Sidebar({ active, onNavigate }) {
     : '??';
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${isOpen ? ' open' : ''}`}>
       <div className="sb-logo">
         <div className="sb-logo-mark">⚡</div>
         <span className="sb-logo-text">Substracker</span>
+        <button className="sb-mobile-close" onClick={onClose}>✕</button>
       </div>
 
       <div className="sb-section-label">Menu</div>

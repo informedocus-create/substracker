@@ -1,8 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { useSession, signIn } from 'next-auth/react';
-import { useSubs } from '@/lib/context';
-import { monthly } from '@/lib/helpers';
+import { useSubs, useCurrency } from '@/lib/context';
+import { monthly, currencySymbol } from '@/lib/helpers';
 import { getCancelGuide } from '@/lib/cancelGuides';
 import SubRow from '@/components/ui/SubRow';
 import CancelGuideModal from '@/components/modals/CancelGuideModal';
@@ -10,6 +10,7 @@ import CancelGuideModal from '@/components/modals/CancelGuideModal';
 export default function Subscriptions({ onOpenAdd }) {
   const { subs } = useSubs();
   const { data: session } = useSession();
+  const { symbol } = useCurrency();
   const [saveModeOn, setSaveModeOn] = useState(false);
   const [cancelSub, setCancelSub]   = useState(null);
 
@@ -19,7 +20,16 @@ export default function Subscriptions({ onOpenAdd }) {
     .filter(s => s.status === 'active' && getCancelGuide(s.name))
     .sort((a, b) => monthly(b) - monthly(a));
 
-  const totalSavable = saveSuggestions.reduce((acc, s) => acc + monthly(s), 0);
+  // Group saveable amounts by currency — no conversion
+  const saveGrouped = saveSuggestions.reduce((acc, s) => {
+    const cur = s.currency || 'INR';
+    acc[cur] = (acc[cur] || 0) + monthly(s);
+    return acc;
+  }, {});
+  const totalDisplay = Object.entries(saveGrouped)
+    .map(([c, v]) => `${currencySymbol(c)}${v.toFixed(2)}`).join('  ·  ') || '—';
+  const annualDisplay = Object.entries(saveGrouped)
+    .map(([c, v]) => `${currencySymbol(c)}${(v * 12).toFixed(0)}`).join('  ·  ') || '—';
 
   return (
     <div className="view-enter">
@@ -48,10 +58,10 @@ export default function Subscriptions({ onOpenAdd }) {
               Potential Monthly Savings
             </div>
             <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--accent)' }}>
-              ${totalSavable.toFixed(2)}/mo
+              {totalDisplay}/mo
             </div>
             <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4 }}>
-              If you cancelled all subscriptions below · ${(totalSavable * 12).toFixed(0)}/year saved
+              If you cancelled all subscriptions below · {annualDisplay}/year saved
             </div>
           </div>
 
@@ -64,7 +74,7 @@ export default function Subscriptions({ onOpenAdd }) {
               {saveSuggestions.map(sub => {
                 const guide = getCancelGuide(sub.name);
                 return (
-                  <div key={sub.id} style={{
+                  <div key={sub.id} className="save-item" style={{
                     display: 'flex', alignItems: 'center', gap: 12,
                     background: 'var(--surface2)', border: '1px solid var(--border)',
                     borderRadius: 12, padding: '12px 16px',
@@ -81,12 +91,12 @@ export default function Subscriptions({ onOpenAdd }) {
                         {sub.name}
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
-                        ${monthly(sub).toFixed(2)}/mo · {guide.method === 'website' ? '🌐 Web cancel' : '📱 App cancel'}
+                        {symbol}{monthly(sub).toFixed(2)}/mo · {guide.method === 'website' ? '🌐 Web cancel' : '📱 App cancel'}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right', marginRight: 8 }}>
                       <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--red)' }}>
-                        ${monthly(sub).toFixed(2)}
+                        {symbol}{monthly(sub).toFixed(2)}
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--text3)' }}>per month</div>
                     </div>

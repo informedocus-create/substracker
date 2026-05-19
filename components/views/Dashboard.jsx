@@ -1,14 +1,15 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useSession, signIn } from 'next-auth/react';
-import { useSubs } from '@/lib/context';
-import { daysTo, monthly } from '@/lib/helpers';
+import { useSubs, useCurrency } from '@/lib/context';
+import { daysTo, monthly, currencySymbol, formatCurrency, monthlyInDisplay } from '@/lib/helpers';
 import MetricCard from '@/components/ui/MetricCard';
 import SubRow from '@/components/ui/SubRow';
 
 export default function Dashboard({ onOpenAdd }) {
-  const { subs } = useSubs();
+  const { subs, clearAllSubs, monthlyTotal, annualTotal, rates } = useSubs();
   const { data: session } = useSession();
+  const { symbol, code } = useCurrency();
   const [dismissed, setDismissed] = useState([]);
   const [dbAlerts, setDbAlerts]   = useState([]);
 
@@ -21,12 +22,16 @@ export default function Dashboard({ onOpenAdd }) {
       .catch(() => {});
   }, [session]);
 
-  // Local (context) computed values
   const active  = subs.filter(s => s.status !== 'paused');
-  const mo      = active.reduce((a, s) => a + monthly(s), 0);
   const trials  = subs.filter(s => s.status === 'trial');
   const paused  = subs.filter(s => s.status === 'paused');
   const sorted  = [...subs].sort((a, b) => new Date(a.date) - new Date(b.date)).slice(0, 5);
+
+  const moDisplay = formatCurrency(monthlyTotal, code);
+  const annualDisplay = formatCurrency(annualTotal, code);
+
+  const savedMonthly = paused.reduce((sum, s) => sum + monthlyInDisplay(s, code, rates), 0);
+  const savedDisplay = formatCurrency(savedMonthly, code);
 
   // Merge DB alerts + local urgent subs (for guests)
   const localUrgent = subs.filter(
@@ -35,9 +40,6 @@ export default function Dashboard({ onOpenAdd }) {
   const hasDbAlerts   = dbAlerts.length > 0;
   const alertsToShow  = hasDbAlerts ? dbAlerts : localUrgent;
   const visibleAlerts = alertsToShow.filter(a => !dismissed.includes(a.id));
-
-  // Savings insight — cancelled / paused subscriptions
-  const savedMonthly = paused.reduce((a, s) => a + monthly(s), 0);
 
   // Alert banner styling by type
   const alertStyle = (type) => ({
@@ -60,7 +62,9 @@ export default function Dashboard({ onOpenAdd }) {
     if (hasDbAlerts) return a.message;
     const d = daysTo(a.date);
     const lbl = d <= 0 ? 'renews TODAY' : d === 1 ? 'renews tomorrow' : `renews in ${d} days`;
-    return `${a.name} ${lbl} — $${a.amount?.toFixed(2)}/${a.cycle}`;
+    // Use the subscription's own currency symbol in alert messages
+    const sym = currencySymbol(a.currency) || symbol;
+    return `${a.name} ${lbl} — ${sym}${(parseFloat(a.amount) || 0).toFixed(2)}/${a.cycle}`;
   };
 
   return (
@@ -80,7 +84,7 @@ export default function Dashboard({ onOpenAdd }) {
       ))}
 
       {/* ── Savings insight banner ── */}
-      {savedMonthly > 0 && (
+      {paused.length > 0 && (
         <div className="alert-banner" style={{
           background: 'rgba(0,229,160,.08)',
           borderColor: 'rgba(0,229,160,.25)',
@@ -88,7 +92,7 @@ export default function Dashboard({ onOpenAdd }) {
           <span style={{ fontSize: 18 }}>🟢</span>
           <span>
             You paused {paused.length} subscription{paused.length > 1 ? 's' : ''} —
-            saving <strong style={{ color: 'var(--accent)' }}>${savedMonthly.toFixed(2)}/month</strong>
+            saving <strong style={{ color: 'var(--accent)' }}>{savedDisplay}/month</strong>
           </span>
         </div>
       )}
@@ -97,7 +101,7 @@ export default function Dashboard({ onOpenAdd }) {
       <div className="metrics-grid">
         <MetricCard
           label="Monthly Spend"
-          value={!session ? "$24.99" : `$${mo.toFixed(2)}`}
+          value={!session ? `${symbol}24.99` : moDisplay}
           sub={!session ? "across all services" : (visibleAlerts.length
             ? `⚠ ${visibleAlerts.length} renewing soon`
             : 'across all services')}
@@ -107,7 +111,7 @@ export default function Dashboard({ onOpenAdd }) {
         />
         <MetricCard
           label="Annual Projection"
-          value={!session ? "$299" : `$${(mo * 12).toFixed(0)}`}
+          value={!session ? `${symbol}299` : annualDisplay}
           sub="at current monthly rate"
           locked={!session}
           lockText="Sign in to view"
@@ -133,7 +137,22 @@ export default function Dashboard({ onOpenAdd }) {
       {/* ── Upcoming renewals ── */}
       <div className="section-heading">
         <div className="section-title">🔔 Upcoming Renewals</div>
-        {session && <button className="btn btn-ghost btn-sm">View all →</button>}
+        <div style={{ display: 'flex', gap: 8 }}>
+          {subs.length > 0 && (
+            <button
+              className="btn btn-sm btn-ghost"
+              style={{ color: 'var(--red)' }}
+              onClick={() => {
+                if (window.confirm('Are you sure you want to remove all subscriptions? This cannot be undone.')) {
+                  clearAllSubs();
+                }
+              }}
+            >
+              🗑 Remove All
+            </button>
+          )}
+          {session && <button className="btn btn-ghost btn-sm">View all →</button>}
+        </div>
       </div>
 
       {!subs.length ? (

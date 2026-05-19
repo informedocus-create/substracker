@@ -1,11 +1,13 @@
 'use client';
 import Toggle from '@/components/ui/Toggle';
-import { useSubs } from '@/lib/context';
+import { useSubs, useCurrency } from '@/lib/context';
 import { useSession } from 'next-auth/react';
+import { CURRENCIES } from '@/lib/helpers';
 
 export default function Settings({ onOpenScan }) {
   const { exportCSV } = useSubs();
   const { data: session } = useSession();
+  const { code, setCurrency } = useCurrency();
 
   return (
     <div className="view-enter">
@@ -76,11 +78,15 @@ export default function Settings({ onOpenScan }) {
             <div className="settings-row-label">Currency</div>
             <div className="settings-row-desc">Display currency for all amounts</div>
           </div>
-          <select className="form-select" style={{ width: 'auto', padding: '6px 10px', fontSize: 13 }}>
-            <option>USD ($)</option>
-            <option>EUR (€)</option>
-            <option>GBP (£)</option>
-            <option>AED (د.إ)</option>
+          <select
+            className="form-select"
+            style={{ width: 'auto', padding: '6px 10px', fontSize: 13 }}
+            value={code}
+            onChange={e => setCurrency(e.target.value)}
+          >
+            {CURRENCIES.map(c => (
+              <option key={c.code} value={c.code}>{c.label}</option>
+            ))}
           </select>
         </div>
         <div className="settings-row">

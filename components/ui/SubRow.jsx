@@ -1,13 +1,16 @@
 'use client';
 import { useState } from 'react';
 import Badge from '@/components/ui/Badge';
-import { useSubs } from '@/lib/context';
-import { daysTo, fmtDate } from '@/lib/helpers';
+import { useSubs, useCurrency } from '@/lib/context';
+import { daysTo, fmtDate, currencySymbol } from '@/lib/helpers';
 import { getCancelGuide } from '@/lib/cancelGuides';
 import CancelGuideModal from '@/components/modals/CancelGuideModal';
 
 export default function SubRow({ sub }) {
   const { deleteSub, togglePause } = useSubs();
+  const { symbol: displaySymbol } = useCurrency();
+  // Show the subscription's own currency symbol; fall back to display currency
+  const symbol = currencySymbol(sub.currency) || displaySymbol;
   const [showCancel, setShowCancel] = useState(false);
   const d = daysTo(sub.date);
   const hasGuide = !!getCancelGuide(sub.name);
@@ -27,7 +30,7 @@ export default function SubRow({ sub }) {
             <div className="sub-cat">{sub.cat}</div>
           </div>
         </div>
-        <div className="sub-amount">${sub.amount?.toFixed(2)} <span>/{sub.cycle}</span></div>
+        <div className="sub-amount">{symbol}{(parseFloat(sub.amount) || 0).toFixed(2)} <span>/{sub.cycle}</span></div>
         <div>{dateEl}</div>
         <div><Badge status={sub.status} daysLeft={d} /></div>
         <div className="sub-actions">
@@ -57,3 +60,4 @@ export default function SubRow({ sub }) {
     </>
   );
 }
+

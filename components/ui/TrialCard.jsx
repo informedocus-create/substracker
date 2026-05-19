@@ -1,9 +1,11 @@
 'use client';
-import { useSubs } from '@/lib/context';
-import { daysTo, fmtDate } from '@/lib/helpers';
+import { useSubs, useCurrency } from '@/lib/context';
+import { daysTo, fmtDate, currencySymbol } from '@/lib/helpers';
 
 export default function TrialCard({ sub }) {
   const { deleteSub, activate } = useSubs();
+  const { symbol: displaySymbol } = useCurrency();
+  const symbol = currencySymbol(sub.currency) || displaySymbol;
   const d = sub.tdays ?? daysTo(sub.date);
   const urgency = d <= 2 ? 'urgent' : d <= 5 ? 'warning' : '';
   const col = d <= 2 ? 'var(--red)' : d <= 5 ? 'var(--amber)' : 'var(--accent)';
@@ -20,7 +22,7 @@ export default function TrialCard({ sub }) {
       <div className="trial-name">{sub.name}</div>
       <div className="trial-detail">{sub.cat} · Converts {fmtDate(sub.date)}</div>
       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)', marginBottom: 12 }}>
-        Charges ${sub.amount.toFixed(2)}/{sub.cycle} after trial
+        Charges {symbol}{(parseFloat(sub.amount) || 0).toFixed(2)}/{sub.cycle} after trial
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
         <button className="btn btn-danger btn-sm" style={{ flex: 1 }} onClick={() => deleteSub(sub.id)}>

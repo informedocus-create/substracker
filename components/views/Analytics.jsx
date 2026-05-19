@@ -1,6 +1,6 @@
 'use client';
-import { useSubs } from '@/lib/context';
-import { monthly } from '@/lib/helpers';
+import { useSubs, useCurrency } from '@/lib/context';
+import { currencySymbol, formatCurrency, monthlyInDisplay } from '@/lib/helpers';
 import MetricCard from '@/components/ui/MetricCard';
 
 const COLORS = ['#00e5a0', '#4f8ef7', '#f5a623', '#ff5f5f', '#9b78f8', '#00b4d8', '#fb923c'];
@@ -8,24 +8,37 @@ const MONTHS  = ['Jan', 'Feb', 'Mar', 'Apr', 'May'];
 const HEIGHTS = [28, 42, 35, 55, 80];
 
 export default function Analytics() {
-  const { subs } = useSubs();
+  const { subs, monthlyTotal, rates } = useSubs();
+  const { symbol, code } = useCurrency();
   const active = subs.filter(s => s.status !== 'paused');
-  const mo     = active.reduce((a, s) => a + monthly(s), 0);
-  const risk   = subs.filter(s => s.status === 'trial').reduce((a, s) => a + s.amount, 0);
-  const top    = subs.length ? subs.reduce((a, b) => monthly(a) > monthly(b) ? a : b) : null;
 
+  const moDisplay   = formatCurrency(monthlyTotal, code);
+  const avgDisplay  = formatCurrency(monthlyTotal / 30, code);
+
+  // Top subscription in display currency
+  const top = subs.length ? subs.reduce((a, b) => monthlyInDisplay(a, code, rates) > monthlyInDisplay(b, code, rates) ? a : b) : null;
+  const topSub = top ? `${currencySymbol(top.currency || 'INR')}${(parseFloat(top.amount) || 0).toFixed(2)}/${top.cycle}` : '—';
+
+  // Trial cost at risk (in display currency)
+  const trials = subs.filter(s => s.status === 'trial');
+  const riskMonthly = trials.reduce((sum, s) => sum + monthlyInDisplay(s, code, rates), 0);
+  const riskDisplay = formatCurrency(riskMonthly, code);
+
+  // Category chart: group by category in display currency
   const cats = {};
-  active.forEach(s => { cats[s.cat] = (cats[s.cat] || 0) + monthly(s); });
+  active.forEach(s => {
+    cats[s.cat] = (cats[s.cat] || 0) + monthlyInDisplay(s, code, rates);
+  });
   const entries = Object.entries(cats).sort((a, b) => b[1] - a[1]);
-  const max = entries[0]?.[1] || 1;
+  const max = Math.max(...entries.map(([, v]) => v), 1);
 
   return (
     <div className="view-enter">
       <div className="metrics-grid">
-        <MetricCard label="This Month"       value={`$${mo.toFixed(2)}`}           sub="total subscription cost"       color="var(--accent)" />
-        <MetricCard label="Avg Per Day"      value={`$${(mo / 30).toFixed(2)}`}    sub="daily subscription cost" />
-        <MetricCard label="Most Expensive"   value={top ? top.name : '—'}           sub={top ? `$${top.amount}/${top.cycle}` : '—'} color="var(--red)" />
-        <MetricCard label="Trial Cost at Risk" value={`$${risk.toFixed(2)}`}        sub="if trials convert to paid"     color="var(--amber)" />
+        <MetricCard label="This Month"         value={moDisplay}            sub="total subscription cost"       color="var(--accent)" />
+        <MetricCard label="Avg Per Day"         value={avgDisplay}           sub="daily subscription cost" />
+        <MetricCard label="Most Expensive"      value={top ? top.name : '—'} sub={topSub}                       color="var(--red)" />
+        <MetricCard label="Trial Cost at Risk"  value={riskDisplay}          sub="if trials convert to paid"    color="var(--amber)" />
       </div>
 
       <div className="analytics-grid">
@@ -36,16 +49,19 @@ export default function Analytics() {
             <div style={{ color: 'var(--text3)', fontSize: 13, textAlign: 'center', padding: 20 }}>
               Add subscriptions to see analytics
             </div>
-          ) : entries.map(([cat, amt], i) => (
-            <div className="cat-item" key={cat}>
-              <div className="cat-dot" style={{ background: COLORS[i % COLORS.length] }} />
-              <div className="cat-name">{cat}</div>
-              <div className="cat-bar-wrap">
-                <div className="cat-bar" style={{ width: `${((amt / max) * 100).toFixed(0)}%`, background: COLORS[i % COLORS.length] }} />
+          ) : entries.map(([cat, val], i) => {
+            const catDisplay = formatCurrency(val, code);
+            return (
+              <div className="cat-item" key={cat}>
+                <div className="cat-dot" style={{ background: COLORS[i % COLORS.length] }} />
+                <div className="cat-name">{cat}</div>
+                <div className="cat-bar-wrap">
+                  <div className="cat-bar" style={{ width: `${((val / max) * 100).toFixed(0)}%`, background: COLORS[i % COLORS.length] }} />
+                </div>
+                <div className="cat-amount">{catDisplay}</div>
               </div>
-              <div className="cat-amount">${amt.toFixed(2)}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Monthly trend */}

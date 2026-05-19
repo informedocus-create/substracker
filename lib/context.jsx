@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { supabase } from './supabase';
 import { DEFAULT_SUBS, CATEGORY_ICONS, CATEGORY_COLORS } from './data';
 import { KNOWN_SERVICES } from './services';
+import { FALLBACK_RATES, monthlyInDisplay, currencySymbol } from './helpers';
 
 const SubsContext = createContext(null);
 const STORAGE_KEY = 'substracker_subs';
@@ -16,6 +17,70 @@ export function SubsProvider({ children }) {
   const toastTimer = useRef(null);
   const hydrated = useRef(false);
 
+  // ── Display currency (user preference) ────────────────────────
+  const [displayCurrency, setDisplayCurrencyState] = useState('INR');
+
+  // ── Live exchange rates ────────────────────────────────────────
+  const [rates, setRates] = useState(FALLBACK_RATES);
+  const [ratesLoading, setRatesLoading] = useState(true);
+
+  // ── Fetch live exchange rates on mount ─────────────────────────
+  useEffect(() => {
+    async function fetchRates() {
+      try {
+        const res  = await fetch("https://api.exchangerate-api.com/v4/latest/INR");
+        const data = await res.json();
+
+        // data.rates gives us "how many X per 1 INR"
+        // We want "how many INR per 1 X" → invert each rate
+        const inverted = { INR: 1 };
+        for (const [code, rate] of Object.entries(data.rates)) {
+          if (rate > 0) inverted[code] = 1 / rate;
+        }
+
+        setRates(inverted);
+        console.log("[Rates] Live rates loaded ✓");
+      } catch (err) {
+        // Silently fall back — FALLBACK_RATES already set as default
+        console.warn("[Rates] Live fetch failed, using fallback rates:", err.message);
+      } finally {
+        setRatesLoading(false);
+      }
+    }
+
+    fetchRates();
+  }, []);
+
+  // ── Detect user location & auto-set display currency ──────────
+  useEffect(() => {
+    const saved = localStorage.getItem("substracker_currency");
+    if (saved) {
+      setDisplayCurrencyState(saved);
+      return;
+    }
+
+    async function detectCurrency() {
+      try {
+        const res  = await fetch("https://ipapi.co/json/");
+        const data = await res.json();
+        const detected = data.currency ?? "INR";
+        setDisplayCurrencyState(detected);
+        localStorage.setItem("substracker_currency", detected);
+        console.log(`[Location] Detected currency: ${detected} (${data.country_name})`);
+      } catch {
+        setDisplayCurrencyState("INR");
+        console.warn("[Location] Detection failed, defaulting to INR");
+      }
+    }
+
+    detectCurrency();
+  }, []);
+
+  const setDisplayCurrency = (code) => {
+    setDisplayCurrencyState(code);
+    localStorage.setItem("substracker_currency", code);
+  };
+
   // Helper: map DB row to App object
   const mapFromDB = (row) => ({
     id: row.id,
@@ -25,6 +90,7 @@ export function SubsProvider({ children }) {
     cat: row.category,
     status: row.status,
     date: row.renewal_date,
+    currency: row.currency || 'INR',   // ← read stored currency
     // Derive icon/color from known services or defaults
     icon: KNOWN_SERVICES.find(s => s.name === row.service_name)?.icon || CATEGORY_ICONS[row.category] || '📦',
     color: KNOWN_SERVICES.find(s => s.name === row.service_name)?.color || CATEGORY_COLORS[row.category] || '#6b7280',
@@ -87,7 +153,8 @@ export function SubsProvider({ children }) {
   // ── CRUD ──
 
   const addSub = useCallback(async (fields) => {
-    const { name, amount, cycle, cat, status, date } = fields;
+    const { name, amount, cycle, cat, status, date, currency } = fields;
+    const subCurrency = currency || 'INR';  // default to INR for manual adds
     
     if (session?.user?.id) {
       const { data, error } = await supabase
@@ -100,7 +167,7 @@ export function SubsProvider({ children }) {
           category: cat,
           status,
           renewal_date: date,
-          currency: 'USD'
+          currency: subCurrency,   // ← store real currency
         }])
         .select()
         .single();
@@ -121,6 +188,7 @@ export function SubsProvider({ children }) {
         cat,
         status,
         date,
+        currency: subCurrency,   // ← store real currency
         icon: CATEGORY_ICONS[cat] || '📦',
         color: CATEGORY_COLORS[cat] || '#6b7280',
       };
@@ -200,7 +268,7 @@ export function SubsProvider({ children }) {
         category: s.cat,
         status: s.status,
         renewal_date: s.date,
-        currency: 'USD'
+        currency: s.currency || 'INR',  // ← use detected currency, not hardcoded
       }));
 
       const { data, error } = await supabase
@@ -238,8 +306,55 @@ export function SubsProvider({ children }) {
     showToast('📊', 'CSV exported!');
   }, [subs, showToast]);
 
+  const clearAllSubs = useCallback(async () => {
+    if (subs.length === 0) return;
+    if (session?.user?.id) {
+      const { error } = await supabase
+        .from('subscriptions')
+        .delete()
+        .eq('user_id', session.user.id);
+
+      if (error) {
+        showToast('❌', 'Failed to remove all');
+        return;
+      }
+    }
+    setSubs([]);
+    showToast('🗑', 'All subscriptions removed');
+  }, [subs, session, showToast]);
+
+  // Computed values
+  const monthlyTotal = subs
+    .filter(s => s.status === 'active')
+    .reduce((sum, s) => sum + monthlyInDisplay(s, displayCurrency, rates), 0);
+
+  const annualTotal = monthlyTotal * 12;
+
+  const activeCount = subs.filter(s => s.status === 'active').length;
+  const trialCount  = subs.filter(s => s.status === 'trial').length;
+
   return (
-    <SubsContext.Provider value={{ subs, addSub, deleteSub, togglePause, activate, importAll, exportCSV, toast }}>
+    <SubsContext.Provider
+      value={{
+        subs,
+        addSub,
+        deleteSub,
+        togglePause,
+        activate,
+        importAll,
+        exportCSV,
+        clearAllSubs,
+        toast,
+        displayCurrency,
+        setDisplayCurrency,
+        rates,
+        ratesLoading,
+        monthlyTotal,
+        annualTotal,
+        activeCount,
+        trialCount,
+      }}
+    >
       {children}
     </SubsContext.Provider>
   );
@@ -249,4 +364,10 @@ export function useSubs() {
   const ctx = useContext(SubsContext);
   if (!ctx) throw new Error('useSubs must be used inside <SubsProvider>');
   return ctx;
+}
+
+export function useCurrency() {
+  const ctx = useSubs();
+  const symbol = currencySymbol(ctx.displayCurrency);
+  return { symbol, code: ctx.displayCurrency, setCurrency: ctx.setDisplayCurrency };
 }

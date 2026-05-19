@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useSubs } from '@/lib/context';
-import { nd } from '@/lib/helpers';
+import { nd, CURRENCIES } from '@/lib/helpers';
 
 const CATEGORIES = ['Entertainment', 'Productivity', 'Music', 'Cloud Storage', 'AI Tools', 'News & Media', 'Fitness', 'Education', 'Other'];
 
@@ -9,6 +9,7 @@ const defaultForm = () => ({
   name: '', amount: '', cycle: 'monthly',
   cat: 'Entertainment', status: 'active',
   date: nd(30), tdays: '',
+  currency: 'INR',   // default to INR for Indian users
 });
 
 export default function AddModal({ isOpen, onClose }) {
@@ -46,8 +47,26 @@ export default function AddModal({ isOpen, onClose }) {
 
         <div className="form-row">
           <div className="form-group">
-            <label className="form-label">Amount ($) *</label>
-            <input className="form-input" type="number" step="0.01" value={form.amount} onChange={e => set('amount', e.target.value)} placeholder="0.00" />
+            <label className="form-label">Amount *</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <select
+                className="form-select"
+                style={{ width: 90, flexShrink: 0 }}
+                value={form.currency}
+                onChange={e => set('currency', e.target.value)}
+              >
+                {CURRENCIES.map(c => (
+                  <option key={c.code} value={c.code}>{c.label}</option>
+                ))}
+              </select>
+              <input
+                className="form-input"
+                type="number" step="0.01"
+                value={form.amount}
+                onChange={e => set('amount', e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
           </div>
           <div className="form-group">
             <label className="form-label">Billing Cycle</label>

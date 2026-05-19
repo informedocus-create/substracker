@@ -9,7 +9,7 @@ const TITLES = {
   settings:      ['Settings',      'Customize your Substracker experience'],
 };
 
-export default function Topbar({ view, onOpenAdd, onOpenScan }) {
+export default function Topbar({ view, onOpenAdd, onOpenScan, onToggleSidebar }) {
   const { data: session } = useSession();
   
   const firstName = session?.user?.name?.split(' ')[0] || '';
@@ -24,9 +24,14 @@ export default function Topbar({ view, onOpenAdd, onOpenScan }) {
 
   return (
     <div className="topbar">
-      <div>
-        <div className="page-title">{title}</div>
-        <div className="page-sub">{sub}</div>
+      <div className="topbar-title-wrap">
+        <button className="mobile-menu-btn" onClick={onToggleSidebar} style={{ display: 'none' }}>
+          ☰
+        </button>
+        <div>
+          <div className="page-title">{title}</div>
+          <div className="page-sub">{sub}</div>
+        </div>
       </div>
       <div className="topbar-actions">
         {!session ? (
