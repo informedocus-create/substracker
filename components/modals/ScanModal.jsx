@@ -106,7 +106,6 @@ function SourceEmailRow({ email }) {
 // Service detection card
 function ServiceCard({ sub, onToggle, isSelected }) {
   const [showEvidence, setShowEvidence] = useState(false);
-  const [showSignals, setShowSignals] = useState(false);
   const sym = currencySymbol(sub.currency);
 
   return (
@@ -201,120 +200,45 @@ function ServiceCard({ sub, onToggle, isSelected }) {
         <ConfidenceBadge level={sub.level} confidence={sub.confidence} />
       </div>
 
-      {/* ── Detection Signals (collapsible) ── */}
-      <div style={{ borderTop: "1px solid var(--border)" }}>
-        {/* Toggle header — clearly styled as clickable */}
-        <button
-          onClick={() => setShowSignals(v => !v)}
-          style={{
-            width: "100%",
-            padding: "9px 14px",
-            background: showSignals ? "rgba(0,229,160,0.06)" : "var(--surface2)",
-            border: "none",
-            borderBottom: showSignals ? "1px solid var(--border)" : "none",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            transition: "background 0.15s",
-          }}
-          onMouseEnter={e => { if (!showSignals) e.currentTarget.style.background = "var(--surface3)"; }}
-          onMouseLeave={e => { if (!showSignals) e.currentTarget.style.background = "var(--surface2)"; }}
-        >
-          {/* Left: icon + label */}
-          <span style={{ fontSize: 13 }}>🔍</span>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text2)", flex: 1, textAlign: "left" }}>
-            Detection Signals
-          </span>
-          {/* Badge: count */}
-          <span style={{
-            fontSize: 11, fontWeight: 700,
-            padding: "1px 8px", borderRadius: 999,
-            background: "rgba(0,229,160,0.15)", color: "var(--accent)",
-            border: "1px solid rgba(0,229,160,0.25)",
-          }}>
-            {sub.reasons.length}
-          </span>
-          {/* Animated chevron */}
-          <svg
-            width="16" height="16" viewBox="0 0 24 24" fill="none"
-            stroke="var(--text2)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-            style={{
-              transition: "transform 0.25s ease",
-              transform: showSignals ? "rotate(180deg)" : "rotate(0deg)",
-              flexShrink: 0,
-            }}
-          >
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </button>
+      {/* ── Reasons/Signals detected ── */}
+      <div style={{
+        padding: "0px 16px 14px 66px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+      }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text3)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>
+          Detection Signals
+        </div>
+        {sub.reasons.map((r, i) => {
+          const isSuccess = r.startsWith("✔") || r.startsWith("✓");
+          const isWarning = r.startsWith("⚠");
+          
+          let textColor = "var(--text2)";
+          let iconColor = "var(--text3)";
+          let iconSymbol = "✕";
+          
+          if (isSuccess) {
+            textColor = "var(--text)";
+            iconColor = "var(--accent)";
+            iconSymbol = "✓";
+          } else if (isWarning) {
+            textColor = "var(--text2)";
+            iconColor = "var(--amber)";
+            iconSymbol = "⚠";
+          }
 
-        {/* Collapsible signals list */}
-        {showSignals && (
-          <div style={{
-            padding: "10px 14px 14px 14px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-            background: "var(--bg)",
-          }}>
-            {sub.reasons.map((r, i) => {
-              const isSuccess = r.startsWith("✔") || r.startsWith("✓");
-              const isWarning = r.startsWith("⚠");
+          const cleanText = r.slice(2);
 
-              let textColor = "var(--text2)";
-              let iconColor = "#ff6b6b";
-              let iconSymbol = "✕";
-
-              if (isSuccess) {
-                textColor = "var(--text)";
-                iconColor = "var(--accent)";
-                iconSymbol = "✓";
-              } else if (isWarning) {
-                textColor = "var(--text2)";
-                iconColor = "var(--amber)";
-                iconSymbol = "⚠";
-              }
-
-              const cleanText = r.slice(2).trim();
-
-              return (
-                <div key={i} style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 10,
-                  fontSize: 12,
-                  lineHeight: 1.6,
-                  padding: "7px 12px",
-                  borderRadius: 8,
-                  background: isSuccess
-                    ? "rgba(0,229,160,0.07)"
-                    : isWarning
-                      ? "rgba(245,166,35,0.07)"
-                      : "rgba(255,107,107,0.07)",
-                  border: `1px solid ${
-                    isSuccess
-                      ? "rgba(0,229,160,0.2)"
-                      : isWarning
-                        ? "rgba(245,166,35,0.2)"
-                        : "rgba(255,107,107,0.18)"
-                  }`,
-                }}>
-                  <span style={{
-                    color: iconColor,
-                    fontSize: 13,
-                    fontWeight: "bold",
-                    flexShrink: 0,
-                    marginTop: 1,
-                  }}>
-                    {iconSymbol}
-                  </span>
-                  <span style={{ color: textColor, flex: 1 }}>{cleanText}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
+          return (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, lineHeight: 1.4 }}>
+              <span style={{ color: iconColor, fontSize: 13, fontWeight: "bold", display: "inline-flex", width: 14, flexShrink: 0 }}>
+                {iconSymbol}
+              </span>
+              <span style={{ color: textColor }}>{cleanText}</span>
+            </div>
+          );
+        })}
       </div>
 
       {/* ── Evidence toggle button ── */}
