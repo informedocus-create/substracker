@@ -200,45 +200,43 @@ function ServiceCard({ sub, onToggle, isSelected }) {
         <ConfidenceBadge level={sub.level} confidence={sub.confidence} />
       </div>
 
+      {/* ── Confidence bar ── */}
+      <div style={{ padding: "0 16px" }}>
+        <div style={{
+          height: 4, borderRadius: 4,
+          background: "var(--surface3)",
+          overflow: "hidden",
+        }}>
+          <div style={{
+            height: "100%",
+            width: `${sub.confidence}%`,
+            borderRadius: 4,
+            background: sub.level === "confirmed" ? "var(--accent)" : "var(--amber)",
+            transition: "width 0.6s ease",
+          }} />
+        </div>
+      </div>
+
       {/* ── Reasons/Signals detected ── */}
       <div style={{
-        padding: "0px 16px 14px 66px",
+        padding: "12px 16px 14px 16px",
         display: "flex",
         flexDirection: "column",
-        gap: 6,
+        gap: 3,
       }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text3)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>
-          Detection Signals
-        </div>
-        {sub.reasons.map((r, i) => {
-          const isSuccess = r.startsWith("✔") || r.startsWith("✓");
-          const isWarning = r.startsWith("⚠");
-          
-          let textColor = "var(--text2)";
-          let iconColor = "var(--text3)";
-          let iconSymbol = "✕";
-          
-          if (isSuccess) {
-            textColor = "var(--text)";
-            iconColor = "var(--accent)";
-            iconSymbol = "✓";
-          } else if (isWarning) {
-            textColor = "var(--text2)";
-            iconColor = "var(--amber)";
-            iconSymbol = "⚠";
-          }
-
-          const cleanText = r.slice(2);
-
-          return (
-            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, lineHeight: 1.4 }}>
-              <span style={{ color: iconColor, fontSize: 13, fontWeight: "bold", display: "inline-flex", width: 14, flexShrink: 0 }}>
-                {iconSymbol}
-              </span>
-              <span style={{ color: textColor }}>{cleanText}</span>
-            </div>
-          );
-        })}
+        {sub.reasons.map((reason, i) => (
+          <div key={i} style={{
+            fontSize: 11,
+            color: reason.startsWith("✔") || reason.startsWith("✓")
+              ? "var(--accent)"
+              : reason.startsWith("⚠")
+                ? "var(--amber)"
+                : "var(--text3)",
+            lineHeight: 1.5,
+          }}>
+            {reason}
+          </div>
+        ))}
       </div>
 
       {/* ── Evidence toggle button ── */}
