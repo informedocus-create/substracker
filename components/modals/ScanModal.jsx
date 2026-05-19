@@ -243,23 +243,27 @@ function ServiceCard({ sub, onToggle, isSelected }) {
       <button
         onClick={() => setShowEvidence(v => !v)}
         style={{
-          width: "100%", padding: "10px 16px",
-          background: "var(--surface2)",
+          width: "100%", padding: "12px 16px",
+          background: "rgba(79, 142, 247, 0.08)",
           border: "none", borderTop: "1px solid var(--border)",
           color: "var(--accent)", fontSize: 12, fontWeight: 600,
           cursor: "pointer", textAlign: "left",
-          display: "flex", alignItems: "center", gap: 6,
-          transition: "background-color 0.15s",
+          display: "flex", alignItems: "center", gap: 8,
+          transition: "all 0.15s",
         }}
-        onMouseEnter={e => e.currentTarget.style.background = "var(--surface3)"}
-        onMouseLeave={e => e.currentTarget.style.background = "var(--surface2)"}
+        onMouseEnter={e => e.currentTarget.style.background = "rgba(79, 142, 247, 0.15)"}
+        onMouseLeave={e => e.currentTarget.style.background = "rgba(79, 142, 247, 0.08)"}
       >
-        <span>📧</span>
-        {showEvidence
-          ? "Hide source emails"
-          : `View ${sub.emailCount} source email${sub.emailCount > 1 ? "s" : ""} that triggered this detection`}
-        <span style={{ marginLeft: "auto", fontSize: 10 }}>
-          {showEvidence ? "▲" : "▼"}
+        <span style={{ fontSize: 16 }}>📧</span>
+        <span style={{ flex: 1 }}>
+          {showEvidence
+            ? "Hide source emails"
+            : `View ${sub.emailCount || ""} source email${sub.emailCount > 1 ? "s" : ""} that triggered this`}
+        </span>
+        <span style={{
+          background: "var(--accent)", color: "#fff", padding: "3px 10px", borderRadius: 999, fontSize: 10, fontWeight: 700
+        }}>
+          {showEvidence ? "CLOSE ▲" : "VIEW ▼"}
         </span>
       </button>      {/* ── Evidence panel — source emails ── */}
       {showEvidence && (
