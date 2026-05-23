@@ -219,24 +219,56 @@ function ServiceCard({ sub, onToggle, isSelected }) {
 
       {/* ── Reasons/Signals detected ── */}
       <div style={{
-        padding: "12px 16px 14px 16px",
+        padding: "10px 16px 12px 16px",
         display: "flex",
         flexDirection: "column",
-        gap: 3,
+        gap: 4,
+        borderTop: "1px solid var(--border)",
+        marginTop: 8,
       }}>
-        {sub.reasons.map((reason, i) => (
-          <div key={i} style={{
-            fontSize: 11,
-            color: reason.startsWith("✔") || reason.startsWith("✓")
-              ? "var(--accent)"
-              : reason.startsWith("⚠")
-                ? "var(--amber)"
-                : "var(--text3)",
-            lineHeight: 1.5,
-          }}>
-            {reason}
-          </div>
-        ))}
+        {/* Email count summary line */}
+        <div style={{
+          fontSize: 11, color: "var(--text3)", marginBottom: 4,
+          fontWeight: 600, letterSpacing: 0.3,
+        }}>
+          {sub.emailCount > 0 ? `📨 ${sub.emailCount} email${sub.emailCount !== 1 ? "s" : ""} found` : ""}
+        </div>
+
+        {/* Reason bullets */}
+        {(sub.reasons ?? []).length > 0
+          ? (sub.reasons ?? []).map((reason, i) => (
+            <div key={i} style={{
+              fontSize: 12,
+              color: (reason.startsWith("✔") || reason.startsWith("✓"))
+                ? "var(--accent)"
+                : reason.startsWith("⚠")
+                  ? "var(--amber)"
+                  : "var(--red)",
+              lineHeight: 1.6,
+              display: "flex", alignItems: "flex-start", gap: 4,
+            }}>
+              {reason}
+            </div>
+          ))
+          : (
+            /* Fallback — reconstruct from signals if reasons missing */
+            <>
+              {sub.signals?.includes("paymentEmail")
+                ? <div style={{ fontSize: 12, color: "var(--accent)" }}>✔ Payment receipt or invoice found</div>
+                : <div style={{ fontSize: 12, color: "var(--red)" }}>✖ No confirmed payment receipt found</div>}
+              {sub.signals?.includes("recurringPattern")
+                ? <div style={{ fontSize: 12, color: "var(--accent)" }}>✔ Monthly billing pattern detected</div>
+                : <div style={{ fontSize: 12, color: "var(--amber)" }}>⚠ No recurring pattern detected</div>}
+              {sub.signals?.includes("multiEmails")
+                ? <div style={{ fontSize: 12, color: "var(--accent)" }}>✔ {sub.emailCount} emails from same merchant</div>
+                : <div style={{ fontSize: 12, color: "var(--red)" }}>✖ Only 1 email from this merchant</div>}
+              {sub.signals?.includes("keywords") &&
+                <div style={{ fontSize: 12, color: "var(--accent)" }}>✔ Subscription keywords detected</div>}
+              {sub.signals?.includes("multipleBills") &&
+                <div style={{ fontSize: 12, color: "var(--accent)" }}>✔ Multiple billing confirmations found</div>}
+            </>
+          )
+        }
       </div>
 
       {/* ── Evidence toggle button ── */}
