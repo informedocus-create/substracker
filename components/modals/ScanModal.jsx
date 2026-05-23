@@ -3,352 +3,6 @@ import { useState, useRef } from 'react';
 import { useSubs } from '@/lib/context';
 import { currencySymbol } from '@/lib/helpers';
 
-// Confidence badge
-function ConfidenceBadge({ level, confidence }) {
-  const styles = {
-    confirmed: { bg: 'rgba(0, 229, 160, 0.15)', color: 'var(--accent)', label: 'Confirmed' },
-    possible:  { bg: 'rgba(245, 166, 35, 0.15)', color: 'var(--amber)', label: 'Possible'  },
-    ignored:   { bg: 'rgba(255, 95, 95, 0.15)', color: 'var(--red)', label: 'Low' },
-  };
-  const s = styles[level] ?? styles.possible;
-  return (
-    <span style={{
-      background: s.bg, color: s.color,
-      fontSize: 11, padding: "3px 8px",
-      borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap",
-      border: `1.5px solid ${s.color}33`,
-    }}>
-      {s.label} {confidence}%
-    </span>
-  );
-}
-
-// Single source email row inside the expanded evidence panel
-function SourceEmailRow({ email }) {
-  const sym = currencySymbol(email.currency);
-
-  return (
-    <div style={{
-      display: "flex", flexDirection: "column", gap: 6,
-      padding: "12px 14px",
-      borderBottom: "1px solid var(--border)",
-    }}>
-      {/* Top row: subject + date + payment badge */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", flex: 1, minWidth: 0 }}>
-          {email.subject || "(no subject)"}
-        </span>
-        <span style={{ fontSize: 11, color: "var(--text3)", whiteSpace: "nowrap" }}>
-          {email.date ?? "—"}
-        </span>
-        {email.hasPayment && (
-          <span style={{
-            fontSize: 11, padding: "1px 7px", borderRadius: 999,
-            background: "rgba(0,229,160,.15)", color: "var(--accent)", whiteSpace: "nowrap",
-          }}>
-            💳 Payment
-          </span>
-        )}
-        {email.amount > 0 && (
-          <span style={{
-            fontSize: 11, padding: "1px 7px", borderRadius: 999,
-            background: "rgba(79,142,247,.15)", color: "#60a5fa", whiteSpace: "nowrap",
-          }}>
-            {sym}{email.amount.toFixed(2)}
-          </span>
-        )}
-      </div>
-
-      {/* From */}
-      <div style={{ fontSize: 11, color: "var(--text3)" }}>
-        From: {email.from}
-      </div>
-
-      {/* Snippet preview */}
-      {email.snippet && (
-        <div style={{
-          fontSize: 12, color: "var(--text2)", fontFamily: "monospace",
-          background: "var(--surface3)", borderRadius: 6,
-          padding: "8px 10px", whiteSpace: "pre-wrap", lineHeight: 1.6,
-          marginTop: 2,
-          border: "1px solid var(--border)",
-        }}>
-          {email.snippet}
-        </div>
-      )}
-
-      {/* Open in Gmail button */}
-      <a
-        href={email.gmailLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{
-          display: "inline-flex", alignItems: "center", gap: 5,
-          marginTop: 4, width: "fit-content",
-          fontSize: 12, color: "var(--accent)",
-          textDecoration: "none", fontWeight: 500,
-        }}
-        onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
-        onMouseLeave={e => e.currentTarget.style.textDecoration = "none"}
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-          <polyline points="15 3 21 3 21 9"/>
-          <line x1="10" y1="14" x2="21" y2="3"/>
-        </svg>
-        Open in Gmail
-      </a>
-    </div>
-  );
-}
-
-// Service detection card
-function ServiceCard({ sub, onToggle, isSelected }) {
-  const [showEvidence, setShowEvidence] = useState(false);
-  const sym = currencySymbol(sub.currency);
-
-  // Always compute reason bullets — use API reasons if present, else derive from signals array
-  const reasonBullets = (() => {
-    // If API already sent full reason strings, use them directly
-    if (Array.isArray(sub.reasons) && sub.reasons.length > 0) return sub.reasons;
-
-    // Otherwise derive from signals array (e.g. ["paymentEmail","multiEmails"])
-    const sig = Array.isArray(sub.signals) ? sub.signals : [];
-    const bullets = [];
-
-    bullets.push(
-      sig.includes("paymentEmail")
-        ? "✔ Payment receipt or invoice found"
-        : "✖ No confirmed payment receipt found"
-    );
-    bullets.push(
-      sig.includes("recurringPattern")
-        ? "✔ Monthly billing pattern detected"
-        : (sub.emailCount >= 2
-            ? "⚠ Multiple emails found but no recurring time pattern"
-            : "✖ No recurring pattern detected")
-    );
-    bullets.push(
-      sig.includes("multiEmails")
-        ? `✔ ${sub.emailCount || "Multiple"} emails from same merchant`
-        : "✖ Only 1 email from this merchant"
-    );
-    if (sig.includes("keywords"))
-      bullets.push("✔ Subscription keywords detected");
-    if (sig.includes("multipleBills"))
-      bullets.push("✔ Multiple billing confirmations found");
-
-    return bullets;
-  })();
-
-  return (
-    <div style={{
-      background: "var(--surface)",
-      border: `1.5px solid ${isSelected ? "var(--accent)" : "var(--border)"}`,
-      borderRadius: 12,
-      transition: "border-color 0.15s, background-color 0.15s",
-      marginBottom: 10,
-      overflow: "hidden",
-    }}>
-      {/* ── Card header ── */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: 12,
-        padding: "12px 16px",
-      }}>
-        {/* Checkbox */}
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={onToggle}
-          style={{ width: 16, height: 16, cursor: "pointer", flexShrink: 0 }}
-        />
-
-        {/* Icon */}
-        <div style={{
-          width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-          background: sub.color + "22",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 20,
-        }}>
-          {sub.icon}
-        </div>
-
-        {/* Name + category */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text)" }}>
-            {sub.name}
-          </div>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 1 }}>
-            {sub.cat}
-          </div>
-        </div>
-
-        {/* Amount */}
-        <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text)" }}>
-            {sub.amount > 0 ? `${sym}${sub.amount.toFixed(2)}` : "—"}
-          </div>
-          <div style={{ fontSize: 11, color: "var(--text3)" }}>/ month</div>
-        </div>
-        {/* Open in Gmail deep-link button */}
-        <a
-          href={`https://mail.google.com/mail/u/0/#inbox/${sub.id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Open latest email in Gmail"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 28,
-            height: 28,
-            borderRadius: 8,
-            background: "var(--surface3)",
-            border: "1.5px solid var(--border)",
-            color: "var(--text2)",
-            textDecoration: "none",
-            cursor: "pointer",
-            flexShrink: 0,
-            transition: "all 0.15s",
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.background = "var(--surface2)";
-            e.currentTarget.style.borderColor = "var(--accent)";
-            e.currentTarget.style.color = "var(--accent)";
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.background = "var(--surface3)";
-            e.currentTarget.style.borderColor = "var(--border)";
-            e.currentTarget.style.color = "var(--text2)";
-          }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-            <polyline points="15 3 21 3 21 9"/>
-            <line x1="10" y1="14" x2="21" y2="3"/>
-          </svg>
-        </a>
-
-        {/* Confidence badge */}
-        <ConfidenceBadge level={sub.level} confidence={sub.confidence} />
-      </div>
-
-      {/* ── Confidence bar ── */}
-      <div style={{ padding: "0 16px" }}>
-        <div style={{
-          height: 4, borderRadius: 4,
-          background: "var(--surface3)",
-          overflow: "hidden",
-        }}>
-          <div style={{
-            height: "100%",
-            width: `${sub.confidence}%`,
-            borderRadius: 4,
-            background: sub.level === "confirmed" ? "var(--accent)" : "var(--amber)",
-            transition: "width 0.6s ease",
-          }} />
-        </div>
-      </div>
-
-      {/* ── Email count + Reason bullets — ALWAYS VISIBLE ── */}
-      <div style={{
-        padding: "10px 16px 12px 16px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 3,
-        borderTop: "1px solid var(--border)",
-        marginTop: 8,
-      }}>
-        {/* Email count */}
-        {sub.emailCount > 0 && (
-          <div style={{
-            fontSize: 11, color: "var(--text3)", marginBottom: 4,
-            fontWeight: 600, letterSpacing: 0.3,
-          }}>
-            📨 {sub.emailCount} email{sub.emailCount !== 1 ? "s" : ""} found
-          </div>
-        )}
-
-        {/* Reason bullets — always rendered */}
-        {reasonBullets.map((reason, i) => (
-          <div key={i} style={{
-            fontSize: 12,
-            color: (reason.startsWith("✔") || reason.startsWith("✓"))
-              ? "var(--accent)"
-              : reason.startsWith("⚠")
-                ? "var(--amber)"
-                : "var(--red)",
-            lineHeight: 1.6,
-          }}>
-            {reason}
-          </div>
-        ))}
-      </div>
-
-      {/* ── Evidence toggle button — ALWAYS VISIBLE ── */}
-      <button
-        onClick={() => setShowEvidence(v => !v)}
-        style={{
-          width: "100%", padding: "10px 16px",
-          background: "rgba(79, 142, 247, 0.08)",
-          border: "none", borderTop: "1px solid var(--border)",
-          color: "var(--accent)", fontSize: 12, fontWeight: 600,
-          cursor: "pointer", textAlign: "left",
-          display: "flex", alignItems: "center", gap: 8,
-          transition: "all 0.15s",
-        }}
-        onMouseEnter={e => e.currentTarget.style.background = "rgba(79, 142, 247, 0.15)"}
-        onMouseLeave={e => e.currentTarget.style.background = "rgba(79, 142, 247, 0.08)"}
-      >
-        <span style={{ fontSize: 15 }}>📧</span>
-        <span style={{ flex: 1 }}>
-          {showEvidence
-            ? "Hide source emails"
-            : `View ${sub.emailCount || ""} source email${sub.emailCount > 1 ? "s" : ""} that triggered this`}
-        </span>
-        <span style={{
-          background: "var(--accent)", color: "#fff",
-          padding: "2px 9px", borderRadius: 999, fontSize: 10, fontWeight: 700,
-        }}>
-          {showEvidence ? "CLOSE ▲" : "VIEW ▼"}
-        </span>
-      </button>
-
-      {/* ── Evidence panel — source emails ── */}
-      {showEvidence && (
-        <div style={{
-          borderTop: "1px solid var(--border)",
-          background: "var(--bg)",
-        }}>
-          {/* Panel header */}
-          <div style={{
-            padding: "8px 14px",
-            fontSize: 11, color: "var(--text3)", fontWeight: 600,
-            borderBottom: "1px solid var(--border)",
-            background: "var(--surface3)",
-          }}>
-            SOURCE EMAILS — click &ldquo;Open in Gmail&rdquo; to view the exact email
-          </div>
-
-          {/* Email rows */}
-          {(sub.sourceEmails ?? []).length > 0
-            ? sub.sourceEmails.map((email, i) => (
-                <SourceEmailRow key={email.msgId ?? i} email={email} />
-              ))
-            : (
-              <div style={{ padding: "12px 14px", fontSize: 12, color: "var(--text3)" }}>
-                No source email details available.
-              </div>
-            )
-          }
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function ScanModal({ isOpen, onClose }) {
   const { importAll } = useSubs();
   const [phase, setPhase]           = useState('intro'); // 'intro' | 'scanning' | 'done' | 'error'
@@ -356,9 +10,7 @@ export default function ScanModal({ isOpen, onClose }) {
   const [progress, setProgress]     = useState(0);
   const [emailCount, setEmailCount] = useState('Connecting to Gmail...');
   const [found, setFound]           = useState([]);
-  const [selected, setSelected]     = useState(new Set());
-  const [importing, setImporting]   = useState(false);
-  const [done, setDone]             = useState(false);
+  const [revealed, setRevealed]     = useState([]);
   const [errorMsg, setErrorMsg]     = useState('');
   const timers = useRef([]);
 
@@ -376,9 +28,7 @@ export default function ScanModal({ isOpen, onClose }) {
     setProgress(0);
     setEmailCount('Connecting to Gmail...');
     setFound([]);
-    setSelected(new Set());
-    setImporting(false);
-    setDone(false);
+    setRevealed([]);
     setErrorMsg('');
   };
 
@@ -421,8 +71,12 @@ export default function ScanModal({ isOpen, onClose }) {
       setSteps(s => ({ ...s, s3: 'done' }));
       setProgress(100);
       setFound(subs);
-      setSelected(new Set(subs.map(s => s.name)));
       setPhase('done');
+
+      // Stagger-reveal each result card
+      subs.forEach((_, i) => {
+        scheduleTimer(i * 250, () => setRevealed(r => [...r, i]));
+      });
 
     } catch (err) {
       clearInterval(iv);
@@ -432,29 +86,9 @@ export default function ScanModal({ isOpen, onClose }) {
     }
   };
 
-  function toggleAll() {
-    setSelected(prev =>
-      prev.size === found.length
-        ? new Set()
-        : new Set(found.map(s => s.name))
-    );
-  }
-
-  function toggleOne(name) {
-    setSelected(prev => {
-      const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
-      return next;
-    });
-  }
-
-  const handleImport = async () => {
-    setImporting(true);
-    const toImport = found.filter(s => selected.has(s.name));
-    await importAll(toImport);
-    setImporting(false);
-    setDone(true);
-    setTimeout(handleClose, 1200);
+  const handleImport = () => {
+    importAll(found);
+    handleClose();
   };
 
   const stepCls = (key) =>
@@ -466,7 +100,7 @@ export default function ScanModal({ isOpen, onClose }) {
       className={`modal-overlay${isOpen ? ' open' : ''}`}
       onClick={e => e.target === e.currentTarget && handleClose()}
     >
-      <div className="modal" style={{ maxWidth: phase === 'done' ? 680 : 460 }}>
+      <div className="modal" style={{ maxWidth: 480 }}>
         <div className="modal-header">
           <div className="modal-title">📧 Scan Gmail Inbox</div>
           <button className="modal-close" onClick={handleClose}>✕</button>
@@ -498,8 +132,8 @@ export default function ScanModal({ isOpen, onClose }) {
           </div>
         )}
 
-        {/* ── SCANNING / PROGRESS ── */}
-        {phase === 'scanning' && (
+        {/* ── SCANNING / DONE ── */}
+        {(phase === 'scanning' || phase === 'done') && (
           <div>
             <div className="scan-steps">
               <div className={stepCls('s1')}>
@@ -531,85 +165,132 @@ export default function ScanModal({ isOpen, onClose }) {
             <div className="progress-wrap">
               <div className="progress-fill" style={{ width: `${progress}%` }} />
             </div>
-          </div>
-        )}
 
-        {/* ── DONE (RESULTS VIEW) ── */}
-        {phase === 'done' && (
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{
-              fontSize: 12, color: 'var(--text3)',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 10
-            }}>
-              <span>
-                {found.filter(s => s.level === 'confirmed').length} confirmed · {found.filter(s => s.level === 'possible').length} possible
-              </span>
-              <button
-                onClick={toggleAll}
-                style={{
-                  background: 'none', border: 'none', color: 'var(--accent)',
-                  fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0,
-                }}
-              >
-                {selected.size === found.length ? "Deselect all" : "Select all"}
-              </button>
-            </div>
+            {phase === 'done' && (
+              <div>
+                <div className="scan-found-wrap">
+                  <div className="scan-found-hdr">
+                    {found.length > 0
+                      ? `🎉 ${found.length} Subscription${found.length > 1 ? 's' : ''} Detected`
+                      : '🔍 Scan Complete'}
+                  </div>
+                  {found.length === 0 ? (
+                    <div style={{ padding: 16, fontSize: 13, color: 'var(--text3)', textAlign: 'center' }}>
+                      No new subscriptions detected in your inbox.
+                    </div>
+                  ) : (
+                    found.map((sub, i) => revealed.includes(i) && (
+                      <div className="scan-found-item" key={sub.id ?? sub.name} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
 
-            <div style={{
-              overflowY: 'auto', display: 'flex', flexDirection: 'column',
-              maxHeight: '52vh', paddingRight: 4, marginBottom: 16
-            }}>
-              {found.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text3)', fontSize: 14 }}>
-                  No subscriptions detected in your inbox.
+                        {/* Top row: icon + name + confidence badge */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{
+                            width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+                            background: `${sub.color}22`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 18,
+                          }}>
+                            {sub.icon}
+                          </div>
+
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>
+                              {sub.name}
+                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--text2)' }}>
+                              {sub.amount > 0
+                                ? `${currencySymbol(sub.currency)}${sub.amount.toFixed(2)}/${sub.cycle}`
+                                : sub.cycle
+                              }
+                              {sub.emailCount > 0 && ` · ${sub.emailCount} email${sub.emailCount > 1 ? 's' : ''} found`}
+                            </div>
+                          </div>
+
+                          {/* Confidence badge */}
+                          <div style={{
+                            padding: '3px 10px',
+                            borderRadius: 20,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            background: sub.level === 'confirmed'
+                              ? 'rgba(0,229,160,.15)' : 'rgba(245,166,35,.15)',
+                            color: sub.level === 'confirmed'
+                              ? 'var(--accent)' : 'var(--amber)',
+                            border: `1px solid ${sub.level === 'confirmed'
+                              ? 'rgba(0,229,160,.3)' : 'rgba(245,166,35,.3)'}`,
+                            whiteSpace: 'nowrap',
+                          }}>
+                            {sub.level === 'confirmed' ? '🟢' : '🟡'} {sub.confidence}%
+                          </div>
+                        </div>
+
+                        {/* Confidence bar */}
+                        <div style={{
+                          height: 4, borderRadius: 4,
+                          background: 'var(--surface3)',
+                          overflow: 'hidden',
+                        }}>
+                          <div style={{
+                            height: '100%',
+                            width: `${sub.confidence}%`,
+                            borderRadius: 4,
+                            background: sub.level === 'confirmed'
+                              ? 'var(--accent)' : 'var(--amber)',
+                            transition: 'width 0.6s ease',
+                          }} />
+                        </div>
+
+                        {/* Reason bullets — always shown */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                          {(Array.isArray(sub.reasons) && sub.reasons.length > 0
+                            ? sub.reasons
+                            : (() => {
+                                const sig = Array.isArray(sub.signals) ? sub.signals : [];
+                                const bullets = [];
+                                bullets.push(sig.includes('paymentEmail')
+                                  ? '✔ Payment receipt or invoice found'
+                                  : '✖ No confirmed payment receipt found');
+                                bullets.push(sig.includes('recurringPattern')
+                                  ? '✔ Monthly billing pattern detected'
+                                  : sub.emailCount >= 2
+                                    ? '⚠ Multiple emails found but no recurring time pattern'
+                                    : '✖ No recurring pattern detected');
+                                bullets.push(sig.includes('multiEmails')
+                                  ? `✔ ${sub.emailCount || 'Multiple'} emails from same merchant`
+                                  : '✖ Only 1 email from this merchant');
+                                if (sig.includes('keywords'))
+                                  bullets.push('✔ Subscription keywords detected');
+                                if (sig.includes('multipleBills'))
+                                  bullets.push('✔ Multiple billing confirmations found');
+                                return bullets;
+                              })()
+                          ).map((reason, ri) => (
+                            <div key={ri} style={{
+                              fontSize: 11,
+                              color: reason.startsWith('✔')
+                                ? 'var(--accent)'
+                                : reason.startsWith('⚠')
+                                  ? 'var(--amber)'
+                                  : 'var(--text3)',
+                              lineHeight: 1.5,
+                            }}>
+                              {reason}
+                            </div>
+                          ))}
+                        </div>
+
+                      </div>
+                    ))
+                  )}
                 </div>
-              ) : (
-                found.map(sub => (
-                  <ServiceCard
-                    key={sub.name}
-                    sub={sub}
-                    isSelected={selected.has(sub.name)}
-                    onToggle={() => toggleOne(sub.name)}
-                  />
-                ))
-              )}
-            </div>
-
-            <div style={{
-              paddingTop: 16,
-              borderTop: "1px solid var(--border)",
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              gap: 10,
-            }}>
-              <div style={{ fontSize: 13, color: "var(--text3)", fontWeight: 500 }}>
-                {selected.size} of {found.length} selected
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+                  <button className="btn btn-ghost" onClick={handleClose}>Skip</button>
+                  {found.length > 0 && (
+                    <button className="btn btn-accent" onClick={handleImport}>Add All Found Subs</button>
+                  )}
+                </div>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  className="btn btn-ghost"
-                  onClick={handleClose}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="btn btn-accent"
-                  onClick={handleImport}
-                  disabled={selected.size === 0 || importing || done}
-                  style={{
-                    background: done ? "#1a3a1a" : "",
-                    color: done ? "#4ade80" : "",
-                    opacity: selected.size === 0 ? 0.5 : 1,
-                  }}
-                >
-                  {done
-                    ? "✓ Imported!"
-                    : importing
-                      ? "Importing…"
-                      : `Add ${selected.size} subscription${selected.size !== 1 ? "s" : ""}`}
-                </button>
-              </div>
-            </div>
+            )}
           </div>
         )}
 
