@@ -5,13 +5,13 @@ import { currencySymbol } from '@/lib/helpers';
 
 export default function ScanModal({ isOpen, onClose }) {
   const { importAll } = useSubs();
-  const [phase, setPhase]           = useState('intro'); // 'intro' | 'scanning' | 'done' | 'error'
-  const [steps, setSteps]           = useState({ s1: '', s2: '', s3: '' });
-  const [progress, setProgress]     = useState(0);
+  const [phase, setPhase] = useState('intro'); // 'intro' | 'scanning' | 'done' | 'error'
+  const [steps, setSteps] = useState({ s1: '', s2: '', s3: '' });
+  const [progress, setProgress] = useState(0);
   const [emailCount, setEmailCount] = useState('Connecting to Gmail...');
-  const [found, setFound]           = useState([]);
-  const [revealed, setRevealed]     = useState([]);
-  const [errorMsg, setErrorMsg]     = useState('');
+  const [found, setFound] = useState([]);
+  const [revealed, setRevealed] = useState([]);
+  const [errorMsg, setErrorMsg] = useState('');
   const timers = useRef([]);
 
   const scheduleTimer = (ms, fn) => {
@@ -92,8 +92,8 @@ export default function ScanModal({ isOpen, onClose }) {
   };
 
   const stepCls = (key) =>
-    steps[key] === 'done'   ? 'scan-step done' :
-    steps[key] === 'active' ? 'scan-step active-step' : 'scan-step';
+    steps[key] === 'done' ? 'scan-step done' :
+      steps[key] === 'active' ? 'scan-step active-step' : 'scan-step';
 
   return (
     <div
@@ -245,25 +245,25 @@ export default function ScanModal({ isOpen, onClose }) {
                           {(Array.isArray(sub.reasons) && sub.reasons.length > 0
                             ? sub.reasons
                             : (() => {
-                                const sig = Array.isArray(sub.signals) ? sub.signals : [];
-                                const bullets = [];
-                                bullets.push(sig.includes('paymentEmail')
-                                  ? '✔ Payment receipt or invoice found'
-                                  : '✖ No confirmed payment receipt found');
-                                bullets.push(sig.includes('recurringPattern')
-                                  ? '✔ Monthly billing pattern detected'
-                                  : sub.emailCount >= 2
-                                    ? '⚠ Multiple emails found but no recurring time pattern'
-                                    : '✖ No recurring pattern detected');
-                                bullets.push(sig.includes('multiEmails')
-                                  ? `✔ ${sub.emailCount || 'Multiple'} emails from same merchant`
-                                  : '✖ Only 1 email from this merchant');
-                                if (sig.includes('keywords'))
-                                  bullets.push('✔ Subscription keywords detected');
-                                if (sig.includes('multipleBills'))
-                                  bullets.push('✔ Multiple billing confirmations found');
-                                return bullets;
-                              })()
+                              const sig = Array.isArray(sub.signals) ? sub.signals : [];
+                              const bullets = [];
+                              bullets.push(sig.includes('paymentEmail')
+                                ? '✔ Payment receipt or invoice found'
+                                : '✖ No confirmed payment receipt found');
+                              bullets.push(sig.includes('recurringPattern')
+                                ? '✔ Monthly billing pattern detected'
+                                : sub.emailCount >= 2
+                                  ? '⚠ Multiple emails found but no recurring time pattern'
+                                  : '✖ No recurring pattern detected');
+                              bullets.push(sig.includes('multiEmails')
+                                ? `✔ ${sub.emailCount || 'Multiple'} emails from same merchant`
+                                : '✖ Only 1 email from this merchant');
+                              if (sig.includes('keywords'))
+                                bullets.push('✔ Subscription keywords detected');
+                              if (sig.includes('multipleBills'))
+                                bullets.push('✔ Multiple billing confirmations found');
+                              return bullets;
+                            })()
                           ).map((reason, ri) => (
                             <div key={ri} style={{
                               fontSize: 11,

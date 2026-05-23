@@ -35,13 +35,6 @@ export default function SubRow({ sub }) {
         <div><Badge status={sub.status} daysLeft={d} /></div>
         <div className="sub-actions">
           <button
-            className="action-btn"
-            onClick={() => togglePause(sub.id)}
-            title={sub.status === 'paused' ? 'Resume' : 'Pause'}
-          >
-            {sub.status === 'paused' ? '▶' : '⏸'}
-          </button>
-          <button
             className="action-btn cancel-btn"
             onClick={() => setShowCancel(true)}
             title={hasGuide ? 'Cancel guide available' : 'Cancel / Remove'}

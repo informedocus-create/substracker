@@ -90,7 +90,6 @@ export default function AddModal({ isOpen, onClose }) {
             <select className="form-select" value={form.status} onChange={e => set('status', e.target.value)}>
               <option value="active">Active</option>
               <option value="trial">Free Trial</option>
-              <option value="paused">Paused</option>
             </select>
           </div>
         </div>
