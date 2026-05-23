@@ -108,13 +108,48 @@ function ServiceCard({ sub, onToggle, isSelected }) {
   const [showEvidence, setShowEvidence] = useState(false);
   const sym = currencySymbol(sub.currency);
 
+  // Always compute reason bullets — use API reasons if present, else derive from signals array
+  const reasonBullets = (() => {
+    // If API already sent full reason strings, use them directly
+    if (Array.isArray(sub.reasons) && sub.reasons.length > 0) return sub.reasons;
+
+    // Otherwise derive from signals array (e.g. ["paymentEmail","multiEmails"])
+    const sig = Array.isArray(sub.signals) ? sub.signals : [];
+    const bullets = [];
+
+    bullets.push(
+      sig.includes("paymentEmail")
+        ? "✔ Payment receipt or invoice found"
+        : "✖ No confirmed payment receipt found"
+    );
+    bullets.push(
+      sig.includes("recurringPattern")
+        ? "✔ Monthly billing pattern detected"
+        : (sub.emailCount >= 2
+            ? "⚠ Multiple emails found but no recurring time pattern"
+            : "✖ No recurring pattern detected")
+    );
+    bullets.push(
+      sig.includes("multiEmails")
+        ? `✔ ${sub.emailCount || "Multiple"} emails from same merchant`
+        : "✖ Only 1 email from this merchant"
+    );
+    if (sig.includes("keywords"))
+      bullets.push("✔ Subscription keywords detected");
+    if (sig.includes("multipleBills"))
+      bullets.push("✔ Multiple billing confirmations found");
+
+    return bullets;
+  })();
+
   return (
     <div style={{
       background: "var(--surface)",
       border: `1.5px solid ${isSelected ? "var(--accent)" : "var(--border)"}`,
-      borderRadius: 12, overflow: "hidden",
+      borderRadius: 12,
       transition: "border-color 0.15s, background-color 0.15s",
       marginBottom: 10,
+      overflow: "hidden",
     }}>
       {/* ── Card header ── */}
       <div style={{
@@ -217,65 +252,46 @@ function ServiceCard({ sub, onToggle, isSelected }) {
         </div>
       </div>
 
-      {/* ── Reasons/Signals detected ── */}
+      {/* ── Email count + Reason bullets — ALWAYS VISIBLE ── */}
       <div style={{
         padding: "10px 16px 12px 16px",
         display: "flex",
         flexDirection: "column",
-        gap: 4,
+        gap: 3,
         borderTop: "1px solid var(--border)",
         marginTop: 8,
       }}>
-        {/* Email count summary line */}
-        <div style={{
-          fontSize: 11, color: "var(--text3)", marginBottom: 4,
-          fontWeight: 600, letterSpacing: 0.3,
-        }}>
-          {sub.emailCount > 0 ? `📨 ${sub.emailCount} email${sub.emailCount !== 1 ? "s" : ""} found` : ""}
-        </div>
+        {/* Email count */}
+        {sub.emailCount > 0 && (
+          <div style={{
+            fontSize: 11, color: "var(--text3)", marginBottom: 4,
+            fontWeight: 600, letterSpacing: 0.3,
+          }}>
+            📨 {sub.emailCount} email{sub.emailCount !== 1 ? "s" : ""} found
+          </div>
+        )}
 
-        {/* Reason bullets */}
-        {(sub.reasons ?? []).length > 0
-          ? (sub.reasons ?? []).map((reason, i) => (
-            <div key={i} style={{
-              fontSize: 12,
-              color: (reason.startsWith("✔") || reason.startsWith("✓"))
-                ? "var(--accent)"
-                : reason.startsWith("⚠")
-                  ? "var(--amber)"
-                  : "var(--red)",
-              lineHeight: 1.6,
-              display: "flex", alignItems: "flex-start", gap: 4,
-            }}>
-              {reason}
-            </div>
-          ))
-          : (
-            /* Fallback — reconstruct from signals if reasons missing */
-            <>
-              {sub.signals?.includes("paymentEmail")
-                ? <div style={{ fontSize: 12, color: "var(--accent)" }}>✔ Payment receipt or invoice found</div>
-                : <div style={{ fontSize: 12, color: "var(--red)" }}>✖ No confirmed payment receipt found</div>}
-              {sub.signals?.includes("recurringPattern")
-                ? <div style={{ fontSize: 12, color: "var(--accent)" }}>✔ Monthly billing pattern detected</div>
-                : <div style={{ fontSize: 12, color: "var(--amber)" }}>⚠ No recurring pattern detected</div>}
-              {sub.signals?.includes("multiEmails")
-                ? <div style={{ fontSize: 12, color: "var(--accent)" }}>✔ {sub.emailCount} emails from same merchant</div>
-                : <div style={{ fontSize: 12, color: "var(--red)" }}>✖ Only 1 email from this merchant</div>}
-              {sub.signals?.includes("keywords") &&
-                <div style={{ fontSize: 12, color: "var(--accent)" }}>✔ Subscription keywords detected</div>}
-              {sub.signals?.includes("multipleBills") &&
-                <div style={{ fontSize: 12, color: "var(--accent)" }}>✔ Multiple billing confirmations found</div>}
-            </>
-          )
-        }
+        {/* Reason bullets — always rendered */}
+        {reasonBullets.map((reason, i) => (
+          <div key={i} style={{
+            fontSize: 12,
+            color: (reason.startsWith("✔") || reason.startsWith("✓"))
+              ? "var(--accent)"
+              : reason.startsWith("⚠")
+                ? "var(--amber)"
+                : "var(--red)",
+            lineHeight: 1.6,
+          }}>
+            {reason}
+          </div>
+        ))}
       </div>
 
-      {/* ── Evidence toggle button ── */}
+      {/* ── Evidence toggle button — ALWAYS VISIBLE ── */}
       <button
         onClick={() => setShowEvidence(v => !v)}
         style={{
-          width: "100%", padding: "12px 16px",
+          width: "100%", padding: "10px 16px",
           background: "rgba(79, 142, 247, 0.08)",
           border: "none", borderTop: "1px solid var(--border)",
           color: "var(--accent)", fontSize: 12, fontWeight: 600,
@@ -286,18 +302,21 @@ function ServiceCard({ sub, onToggle, isSelected }) {
         onMouseEnter={e => e.currentTarget.style.background = "rgba(79, 142, 247, 0.15)"}
         onMouseLeave={e => e.currentTarget.style.background = "rgba(79, 142, 247, 0.08)"}
       >
-        <span style={{ fontSize: 16 }}>📧</span>
+        <span style={{ fontSize: 15 }}>📧</span>
         <span style={{ flex: 1 }}>
           {showEvidence
             ? "Hide source emails"
             : `View ${sub.emailCount || ""} source email${sub.emailCount > 1 ? "s" : ""} that triggered this`}
         </span>
         <span style={{
-          background: "var(--accent)", color: "#fff", padding: "3px 10px", borderRadius: 999, fontSize: 10, fontWeight: 700
+          background: "var(--accent)", color: "#fff",
+          padding: "2px 9px", borderRadius: 999, fontSize: 10, fontWeight: 700,
         }}>
           {showEvidence ? "CLOSE ▲" : "VIEW ▼"}
         </span>
-      </button>      {/* ── Evidence panel — source emails ── */}
+      </button>
+
+      {/* ── Evidence panel — source emails ── */}
       {showEvidence && (
         <div style={{
           borderTop: "1px solid var(--border)",
@@ -310,7 +329,7 @@ function ServiceCard({ sub, onToggle, isSelected }) {
             borderBottom: "1px solid var(--border)",
             background: "var(--surface3)",
           }}>
-            SOURCE EMAILS — click "Open in Gmail" to view the exact email
+            SOURCE EMAILS — click &ldquo;Open in Gmail&rdquo; to view the exact email
           </div>
 
           {/* Email rows */}
