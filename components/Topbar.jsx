@@ -40,6 +40,9 @@ export default function Topbar({ view, onOpenAdd, onOpenScan, onToggleSidebar })
           </button>
         ) : (
           <>
+            <button className="btn btn-accent" onClick={onOpenAdd}>
+              + Add
+            </button>
             <button className="btn btn-blue" onClick={onOpenScan}>
               📧 Scan Gmail
             </button>

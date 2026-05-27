@@ -167,7 +167,13 @@ export default function Dashboard({ onOpenAdd }) {
               </div>
             </>
           ) : (
-            <div className="empty-desc">Scan your Gmail inbox to get started.</div>
+            <>
+              <div className="empty-desc">Add your first subscription manually, or scan Gmail to auto-detect them.</div>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: '16px' }}>
+                <button className="btn btn-accent" onClick={onOpenAdd}>+ Add subscription</button>
+                <button className="btn btn-blue" onClick={() => {}}>📧 Scan Gmail</button>
+              </div>
+            </>
           )}
         </div>
       ) : (

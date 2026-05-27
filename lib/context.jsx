@@ -96,27 +96,40 @@ export function SubsProvider({ children }) {
     color: KNOWN_SERVICES.find(s => s.name === row.service_name)?.color || CATEGORY_COLORS[row.category] || '#6b7280',
   });
 
+  const prevSessionId = useRef(undefined);
+
   // Load subscriptions
   useEffect(() => {
+    const currentId = session?.user?.id || null;
+
+    // If the user has changed (e.g. log in, log out, switch accounts),
+    // immediately clear the subscriptions to prevent data leaking into the new session.
+    if (prevSessionId.current !== undefined && prevSessionId.current !== currentId) {
+      setSubs([]);
+      hydrated.current = false; // Block localStorage sync until the new state is loaded
+    }
+    prevSessionId.current = currentId;
+
     const loadData = async () => {
-      if (session?.user?.id) {
+      if (currentId) {
         // Fetch from Supabase
         const { data, error } = await supabase
           .from('subscriptions')
           .select('*')
-          .eq('user_id', session.user.id)
+          .eq('user_id', currentId)
           .order('renewal_date', { ascending: true });
 
         if (!error && data) {
           setSubs(data.map(mapFromDB));
+        } else {
+          setSubs([]);
         }
-      } else if (!session) {
+      } else if (session === null) {
         // Fallback to localStorage for guests
         try {
           const saved = localStorage.getItem(STORAGE_KEY);
           if (saved) {
             const parsed = JSON.parse(saved);
-            // Detect old hardcoded mock data and wipe it
             const isMockData = parsed.subs?.some?.(s => s.name === 'Netflix' && s.amount === 15.49);
             
             if (isMockData) {
@@ -132,15 +145,24 @@ export function SubsProvider({ children }) {
           setSubs([]);
         }
       }
-      hydrated.current = true;
+      // Mark as hydrated so guest mode can start syncing future changes
+      if (session === null) {
+        hydrated.current = true;
+      }
     };
 
-    loadData();
+    if (session !== undefined) {
+      loadData();
+    }
   }, [session]);
 
   // Sync to localStorage for guest users ONLY
   useEffect(() => {
-    if (!hydrated.current || session?.user?.id) return;
+    // Only write to localStorage if:
+    // 1. We are completely hydrated (the guest data has been loaded).
+    // 2. We are currently a guest (session is explicitly null).
+    // 3. The current subs do not belong to an authenticated user (caught by hydration flag).
+    if (!hydrated.current || session !== null) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ subs }));
   }, [subs, session]);
 

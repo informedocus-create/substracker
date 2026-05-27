@@ -2,134 +2,58 @@ import { google } from "googleapis";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getHeader, decodeBase64 } from "@/lib/gmail";
-import { KNOWN_SERVICES, SUBSCRIPTION_KEYWORDS } from "@/lib/services";
+import { KNOWN_SERVICES } from "@/lib/services";
+import {
+  scoreSubscription,
+  extractRenewalDate,
+  resolveMerchantKey,
+  MERCHANT_DB,
+} from "@/lib/subscriptionDetector";
 
 // ═══════════════════════════════════════════════════════════════════
-//  SIGNAL CONSTANTS
+//  GMAIL QUERY  (Layer 1 — Email Filter)
+//  Broadened to capture billing emails across ALL Gmail tabs.
+//  category:purchases is sparsely populated in Indian inboxes —
+//  most billing emails land in Primary or Updates instead.
+//  The keyword arm catches those without requiring Gmail to categorise them.
 // ═══════════════════════════════════════════════════════════════════
-
-const PAYMENT_SIGNALS = [
-  "you have been charged", "payment successful", "payment confirmed",
-  "payment received", "invoice", "receipt", "transaction completed",
-  "order confirmation", "amount paid", "charge of", "billed",
-  "thanks for joining", "thank you for joining",
-  "you're ready to start", "subscription is active",
-  "subscription confirmed", "you've subscribed", "you have subscribed",
-  "welcome to", "account information",
-];
-
-const LIFECYCLE_SIGNALS = [
-  "renewal", "renew", "monthly plan", "yearly plan", "annual plan",
-  "auto-renew", "auto renew", "next billing", "next billing date",
-  "billing cycle", "subscription plan", "your plan",
-  "\u20b9", "inr", "rs.", "upi", "mobile plan",
-];
-
-// ═══════════════════════════════════════════════════════════════════
-//  CURRENCY CONSTANTS
-// ═══════════════════════════════════════════════════════════════════
-
-const MINIMUM_AMOUNTS = {
-  INR: 49,
-  USD: 1,
-  GBP: 1,
-  EUR: 1,
-  UNKNOWN: 1,
-};
-
-const CURRENCY_SYMBOLS = {
-  INR: "₹",
-  USD: "$",
-  GBP: "£",
-  EUR: "€",
-  UNKNOWN: "",
-};
-
-function detectCurrency(prefix) {
-  if (!prefix) return "UNKNOWN";
-  const p = prefix.trim().toUpperCase();
-  if (p === "$") return "USD";
-  if (p === "₹" || p.startsWith("RS") || p === "INR") return "INR";
-  if (p === "£") return "GBP";
-  if (p === "€") return "EUR";
-  return "UNKNOWN";
-}
-
-function extractAmount(text) {
-  const regex = /([\$\u20b9£€]|Rs\.?\s{0,2}|INR\s{0,2})(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)/i;
-  const match = text.match(regex);
-  if (!match) return { amount: 0, currency: "UNKNOWN" };
-  const currency = detectCurrency(match[1]);
-  const amount   = parseFloat(match[2].replace(/,/g, ""));
-  return { amount, currency };
-}
+const GMAIL_QUERY = [
+  // Gmail-categorised receipts (works well for US/EU inboxes)
+  "category:purchases",
+  "label:^smartlabel_receipt",
+  // Subject-line signals that billing emails almost always contain
+  "subject:(invoice)",
+  "subject:(receipt)",
+  "subject:(subscription)",
+  "subject:(billing)",
+  'subject:("payment successful")',
+  'subject:("payment confirmed")',
+  'subject:("amount charged")',
+  'subject:("order confirmation")',
+  'subject:("membership")',
+  'subject:("auto-renewal")',
+  'subject:("auto renew")',
+  'subject:("renewed successfully")',
+  'subject:("tax invoice")',
+  'subject:("billed")',
+  // Indian billing signals
+  "subject:(₹)",
+  "subject:(INR)",
+  "subject:(UPI)",
+].join(" OR ") + " newer_than:12m";
 
 // ═══════════════════════════════════════════════════════════════════
-//  CONFIDENCE SCORING
-// ═══════════════════════════════════════════════════════════════════
-
-function calculateConfidence(signals) {
-  let score = 0;
-  if (signals.paymentEmail)     score += 25;
-  if (signals.keywords)         score += 10;
-  if (signals.multiEmails)      score += 20;
-  if (signals.recurringPattern) score += 35;
-  if (signals.multipleBills)    score += 10;
-  return Math.min(score, 100);
-}
-
-function classifyConfidence(pct) {
-  if (pct <= 30) return "ignored";
-  if (pct <= 60) return "possible";
-  return "confirmed";
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  EXPLANATION ENGINE
-// ═══════════════════════════════════════════════════════════════════
-
-function buildExplanation(signals, emailCount) {
-  const reasons = [];
-  if (signals.paymentEmail)
-    reasons.push("✔ Payment receipt or invoice found");
-  else
-    reasons.push("⚠ No confirmed payment receipt found");
-
-  if (signals.recurringPattern)
-    reasons.push("✔ Monthly billing pattern detected");
-  else if (emailCount >= 2)
-    reasons.push("⚠ Multiple emails found but no recurring time pattern");
-  else
-    reasons.push("✖ No recurring pattern detected");
-
-  if (signals.multiEmails)
-    reasons.push(`✔ ${emailCount} emails from same merchant`);
-  else
-    reasons.push("✖ Only 1 email from this merchant");
-
-  if (signals.keywords)
-    reasons.push("✔ Subscription keywords detected");
-
-  if (signals.multipleBills)
-    reasons.push("✔ Multiple billing confirmations found");
-
-  return reasons;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  HELPER FUNCTIONS
+//  HELPERS
 // ═══════════════════════════════════════════════════════════════════
 
 function extractSenderName(fromHeader) {
   const displayMatch = fromHeader.match(/^([^<]+)</);
   if (displayMatch) {
-    return displayMatch[1].trim().replace(/["']/g, "").split(" ")[0];
+    return displayMatch[1].trim().replace(/['"]/g, "").split(" ")[0];
   }
   const domainMatch = fromHeader.match(/@([\w.-]+)/);
   if (domainMatch) {
-    return domainMatch[1]
-      .split(".")[0]
-      .replace(/^./, c => c.toUpperCase());
+    return domainMatch[1].split(".")[0].replace(/^./, (c) => c.toUpperCase());
   }
   return "Unknown";
 }
@@ -138,142 +62,32 @@ function normalizeMerchant(text) {
   return text.toLowerCase().replace(/[^a-z]/g, "");
 }
 
-function matchService(normalizedText) {
+function matchKnownService(normalizedText) {
   return KNOWN_SERVICES.find((s) =>
     normalizedText.includes(s.name.toLowerCase().replace(/[^a-z]/g, ""))
   );
 }
 
-function isRecurring(dates) {
-  if (dates.length < 2) return false;
-  const sorted = [...dates].sort((a, b) => a - b);
-  const gaps = [];
-  for (let i = 1; i < sorted.length; i++) {
-    gaps.push((sorted[i] - sorted[i - 1]) / 86_400_000);
-  }
-  return gaps.some((g) => g >= 25 && g <= 35) ||
-         gaps.some((g) => g >= 340 && g <= 390);
-}
-
-function scoreEmail(text) {
-  const lower = text.toLowerCase();
-  const hasPayment   = PAYMENT_SIGNALS.some((p) => lower.includes(p));
-  const hasLifecycle = LIFECYCLE_SIGNALS.some((p) => lower.includes(p));
-  return { hasPayment, hasLifecycle };
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  RENEWAL DATE EXTRACTION
-// ═══════════════════════════════════════════════════════════════════
-
-function extractRenewalDate(text) {
-  const isoMatch = text.match(/\b(\d{4}-\d{2}-\d{2})\b/);
-  if (isoMatch) {
-    const d = new Date(isoMatch[1]);
-    if (!isNaN(d) && d > new Date()) return d;
-  }
-
-  const MONTHS = 'jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec';
-  const lower  = text.toLowerCase();
-  const wordMatch = lower.match(
-    new RegExp(`(\\d{1,2})\\s+(${MONTHS})[a-z]*(?:\\s+(\\d{4}))?`, 'i')
-  );
-  if (wordMatch) {
-    const str = `${wordMatch[1]} ${wordMatch[2]} ${wordMatch[3] || new Date().getFullYear()}`;
-    const d   = new Date(str);
-    if (!isNaN(d)) {
-      if (d < new Date()) d.setFullYear(d.getFullYear() + 1);
-      return d;
-    }
-  }
-
-  const numericMatch = text.match(/\b(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})\b/);
-  if (numericMatch) {
-    const d = new Date(numericMatch[0]);
-    if (!isNaN(d) && d > new Date()) return d;
-  }
-
-  return null;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  ALERT LOGIC
-// ═══════════════════════════════════════════════════════════════════
-
-export function shouldAlert(nextBillingDate) {
-  if (!nextBillingDate) return null;
-  const today   = new Date(); today.setHours(0, 0, 0, 0);
-  const renewal = new Date(nextBillingDate); renewal.setHours(0, 0, 0, 0);
-  const diffDays = Math.ceil((renewal - today) / 86_400_000);
-  if (diffDays < 0 || diffDays > 5) return null;
-  return {
-    daysAway: diffDays,
-    type: diffDays === 0 ? 'today' : diffDays === 1 ? 'tomorrow' : 'upcoming',
-  };
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  SUBSCRIPTION LIKELIHOOD GATE
-// ═══════════════════════════════════════════════════════════════════
-
-function isLikelySubscription(combinedText, isKnownService, emailCount, signals) {
-  const lower = combinedText.toLowerCase();
-  let score = 0;
-
-  const RECURRING_WORDS = [
-    "subscription", "membership", "auto-renew", "auto renew",
-    "recurring", "billing cycle", "monthly plan", "annual plan",
-    "next billing date", "renewal date", "renews on",
-    "next charge", "next payment", "billed monthly", "billed annually",
-    "cancel anytime", "free trial", "trial ends",
-    "thanks for joining", "thank you for joining",
-    "you're ready to start", "your plan", "start watching",
-    "start listening", "account information",
-  ];
-
-  if (RECURRING_WORDS.some(w => lower.includes(w))) score += 2;
-  if (isKnownService)                                score += 2;
-  if (emailCount >= 2)                               score += 1;
-  if (signals.paymentEmail && signals.keywords)      score += 1;
-
-  return score >= 2;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  EMAIL SNIPPET EXTRACTOR
-//  Pulls a clean 2-3 line preview from raw email body.
-//  Used in ScanModal so user can preview email without opening Gmail.
-// ═══════════════════════════════════════════════════════════════════
-
 function extractSnippet(body) {
   if (!body) return "";
-
-  // Remove HTML tags if any leaked through
   const clean = body
     .replace(/<[^>]+>/g, " ")
     .replace(/\s{2,}/g, " ")
     .trim();
-
-  // Find the most informative line — prefer lines with amounts or keywords
   const lines = clean
     .split(/\n/)
-    .map(l => l.trim())
-    .filter(l => l.length > 10 && l.length < 200);
-
-  const PRIORITY_WORDS = [
+    .map((l) => l.trim())
+    .filter((l) => l.length > 10 && l.length < 200);
+  const PRIORITY = [
     "amount", "charged", "₹", "$", "invoice", "receipt",
     "plan", "membership", "renew", "billing", "subscription",
   ];
-
-  const priorityLine = lines.find(l =>
-    PRIORITY_WORDS.some(w => l.toLowerCase().includes(w))
+  const priority = lines.find((l) =>
+    PRIORITY.some((w) => l.toLowerCase().includes(w))
   );
-
-  // Return priority line + next line for context, or first 2 lines
-  const chosen = priorityLine ?? lines[0] ?? "";
-  const idx    = lines.indexOf(chosen);
-  const next   = lines[idx + 1] ?? "";
-
+  const chosen = priority ?? lines[0] ?? "";
+  const idx = lines.indexOf(chosen);
+  const next = lines[idx + 1] ?? "";
   return next ? `${chosen}\n${next}` : chosen;
 }
 
@@ -288,28 +102,39 @@ export async function GET() {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // ── Build Gmail client ──────────────────────────────────────────
     const auth = new google.auth.OAuth2();
     auth.setCredentials({ access_token: session.accessToken });
     const gmail = google.gmail({ version: "v1", auth });
 
-    const gmailQuery = SUBSCRIPTION_KEYWORDS.join(" OR ");
-    console.log(`[Gmail Scan] Query: ${gmailQuery}`);
+    console.log(`[Gmail Scan] Query: ${GMAIL_QUERY}`);
 
-    // 1. Fetch candidate emails
+    // ── Layer 1: Fetch filtered emails ──────────────────────────────
     const response = await gmail.users.messages.list({
       userId: "me",
-      q: gmailQuery,
-      maxResults: 100,
+      q: GMAIL_QUERY,
+      maxResults: 300,          // larger pool — broad query needs more headroom
       includeSpamTrash: false,
     });
 
     const messages = response.data.messages || [];
-    console.log(`[Gmail Scan] Raw fetch: ${messages.length} messages found`);
-    if (!messages.length) return Response.json({ subscriptions: [] });
+    console.log(`[Layer 1] ${messages.length} qualifying messages`);
 
-    // Expand threads → get all individual message IDs
-    const threadIds = [...new Set(messages.map(m => m.threadId))];
+    if (!messages.length) {
+      return Response.json({
+        subscriptions: [],
+        stats: { fetched: 0, candidates: 0, confirmed: 0, possible: 0, ignored: 0 },
+      });
+    }
+
+    // ── Expand threads ──────────────────────────────────────────────
+    // Deduplicate thread IDs first, then deduplicate message IDs after
+    // expansion — a message can appear in both category:purchases AND
+    // a label, so it could be returned twice by messages.list.
+    const threadIds = [...new Set(messages.map((m) => m.threadId))];
+    const seenMsgIds = new Set();   // ← guard against cross-label duplicates
     const allMessageIds = [];
+
     for (const threadId of threadIds) {
       try {
         const thread = await gmail.users.threads.get({
@@ -317,13 +142,18 @@ export async function GET() {
           id: threadId,
           format: "minimal",
         });
-        (thread.data.messages || []).forEach(m => allMessageIds.push(m.id));
+        for (const m of thread.data.messages || []) {
+          if (!seenMsgIds.has(m.id)) {
+            seenMsgIds.add(m.id);
+            allMessageIds.push(m.id);
+          }
+        }
       } catch (e) {
-        console.error(`[Scan] Thread fetch error ${threadId}:`, e.message);
+        console.error(`[Thread] ${threadId}:`, e.message);
       }
     }
 
-    // 2. Parse each email
+    // ── Parse individual emails ─────────────────────────────────────
     const parsed = await Promise.all(
       allMessageIds.map(async (msgId) => {
         try {
@@ -337,231 +167,175 @@ export async function GET() {
 
           let body = "";
           if (payload.parts) {
-            const part = payload.parts.find((p) => p.mimeType === "text/plain")
-                      || payload.parts[0];
+            const part =
+              payload.parts.find((p) => p.mimeType === "text/plain") ||
+              payload.parts[0];
             body = decodeBase64(part?.body?.data || "");
           } else {
             body = decodeBase64(payload.body?.data || "");
           }
 
           const fullText = `${subject} ${from} ${body}`;
-
-          const service = matchService(normalizeMerchant(fullText))
-                       || matchService(normalizeMerchant(from));
+          const service  =
+            matchKnownService(normalizeMerchant(fullText)) ||
+            matchKnownService(normalizeMerchant(from));
 
           const resolvedName  = service?.name  || extractSenderName(from);
           const resolvedIcon  = service?.icon  || "📧";
           const resolvedColor = service?.color || "#6366f1";
           const resolvedCat   = service?.cat   || "Other";
-          const isKnownService = !!service;
 
-          const { hasPayment, hasLifecycle } = scoreEmail(fullText);
-          const { amount, currency }          = extractAmount(fullText);
-          const emailDate                     = new Date(dateStr);
-          const extractedRenewalDate          = extractRenewalDate(body + " " + subject);
-
-          // Clean snippet for preview in ScanModal
-          const snippet = extractSnippet(body);
-
-          console.log(
-            `[Scan] "${subject}" | service=${resolvedName} | known=${isKnownService}` +
-            ` | hasPayment=${hasPayment} | amount=${CURRENCY_SYMBOLS[currency]}${amount} (${currency})`
-          );
+          const emailDate          = new Date(dateStr);
+          const extractedRenewalDate = extractRenewalDate(`${body} ${subject}`);
+          const snippet            = extractSnippet(body);
 
           return {
             msgId,
             service: { name: resolvedName, icon: resolvedIcon, color: resolvedColor, cat: resolvedCat },
+            from,
+            subject,
+            body,
+            snippet,
             emailDate: isNaN(emailDate) ? null : emailDate,
             extractedRenewalDate,
-            hasPayment,
-            hasLifecycle,
-            amount,
-            currency,
-            subject,
-            from,
-            snippet,   // ← clean 2-line preview
-            fullText,
-            isKnownService,
           };
         } catch (e) {
-          console.error(`[Scan] Parse error ${msgId}:`, e.message);
+          console.error(`[Parse] ${msgId}:`, e.message);
           return null;
         }
       })
     );
 
     const candidates = parsed.filter(Boolean);
+    console.log(`[Layer 1→2] ${candidates.length} emails parsed`);
 
-    // 3. Group by service name
+    // ── Group by merchant name ──────────────────────────────────────
     const groups = {};
     for (const c of candidates) {
       const key = c.service.name;
       if (!groups[key]) {
-        groups[key] = {
-          service:      c.service,
-          emails:       [],
-          bestAmount:   0,
-          bestCurrency: "UNKNOWN",
-        };
+        groups[key] = { service: c.service, emails: [] };
       }
-      groups[key].emails.push(c);
-      if (c.amount > groups[key].bestAmount) {
-        groups[key].bestAmount   = c.amount;
-        groups[key].bestCurrency = c.currency;
-      }
+      // Attach fields the detector needs
+      groups[key].emails.push({
+        msgId:       c.msgId,
+        from:        c.from,
+        subject:     c.subject,
+        body:        c.body,
+        snippet:     c.snippet,
+        emailDate:   c.emailDate,
+        extractedRenewalDate: c.extractedRenewalDate,
+      });
     }
 
-    // 4. Score + filter + explain
-    const results = [];
+    // ── Run 6-layer scorer per merchant group ───────────────────────
+    const confirmed = [];
+    const possible  = [];
+    const ignored   = [];
 
     for (const [name, g] of Object.entries(groups)) {
-      const { emails, service, bestAmount, bestCurrency } = g;
-      const emailCount   = emails.length;
-      const paymentCount = emails.filter((e) => e.hasPayment).length;
-      const validDates   = emails.map((e) => e.emailDate).filter(Boolean);
-      const recurring    = isRecurring(validDates);
+      const { emails, service } = g;
 
-      const signals = {
-        paymentEmail:     paymentCount >= 1,
-        keywords:         emails.some((e) => e.hasLifecycle),
-        multiEmails:      emailCount >= 2,
-        recurringPattern: recurring,
-        multipleBills:    paymentCount >= 2,
-      };
-
-      const combinedText        = emails.map(e => e.fullText).join(" ");
-      const isKnownServiceGroup = emails.some(e => e.isKnownService);
-      const hasAmount           = bestAmount > 0;
-
-      const SUBSCRIPTION_INDICATORS = [
-        "subscription", "membership", "auto-renew", "auto renew",
-        "recurring", "billing cycle", "monthly plan", "annual plan",
-        "next billing date", "renewal date",
-        "thanks for joining", "thank you for joining",
-        "you're ready to start", "your plan", "account information",
-        "subscription is active", "subscription confirmed",
-        "welcome to", "start watching", "start listening",
-        "\u20b9", "inr", "upi", "rs.",
-      ];
-
-      const hasSubscriptionLanguage = SUBSCRIPTION_INDICATORS.some(
-        kw => combinedText.toLowerCase().includes(kw)
+      // Resolve this merchant against our DB
+      const merchantKey = resolveMerchantKey(name) || resolveMerchantKey(
+        emails[0]?.from || ""
       );
 
-      let confidence = calculateConfidence(signals);
+      // Run the full 6-layer pipeline
+      const result = scoreSubscription(emails, merchantKey);
 
-      if (!hasSubscriptionLanguage && !isKnownServiceGroup) {
-        confidence = Math.min(confidence, 30);
-      }
-      if (isKnownServiceGroup && hasAmount && confidence < 35) {
-        confidence = 35;
-      }
-
-      const level   = classifyConfidence(confidence);
-      const reasons = buildExplanation(signals, emailCount);
-
-      if (level === "ignored") {
-        console.log(`[Scan] IGNORED "${name}" — ${confidence}%`);
-        continue;
-      }
-
-      const likelySubscription = isLikelySubscription(
-        combinedText, isKnownServiceGroup, emailCount, signals
+      console.log(
+        `[Score] "${name}" → ${result.score}% (${result.verdict}) | signals: ${result.signals.join(", ")}`
       );
-      if (!likelySubscription) {
-        console.log(`[Scan] FILTERED "${name}" — not enough subscription signals (${confidence}%)`);
-        continue;
-      }
 
-      const minAmount = MINIMUM_AMOUNTS[bestCurrency] ?? 1;
-      if (bestAmount > 0 && bestAmount < minAmount && !isKnownServiceGroup) {
-        console.log(
-          `[Scan] FILTERED "${name}" — ${CURRENCY_SYMBOLS[bestCurrency]}${bestAmount}` +
-          ` below minimum ${CURRENCY_SYMBOLS[bestCurrency]}${minAmount}`
-        );
-        continue;
-      }
-
-      // Renewal date
-      const latest = [...emails].sort(
-        (a, b) => (b.emailDate || 0) - (a.emailDate || 0)
-      )[0];
-
+      // Compute renewal date
       const explicitDates = emails
         .map((e) => e.extractedRenewalDate)
         .filter(Boolean)
         .sort((a, b) => b - a);
 
+      const latest = [...emails].sort(
+        (a, b) => (b.emailDate || 0) - (a.emailDate || 0)
+      )[0];
+
       const renewalDate =
         explicitDates[0] ||
-        (latest.emailDate
+        (latest?.emailDate
           ? new Date(latest.emailDate.getTime() + 30 * 86_400_000)
           : null);
 
-      const renewalISO = renewalDate?.toISOString().split("T")[0] || null;
-
-      const today = new Date(); today.setHours(0, 0, 0, 0);
-      const renewal = renewalDate ? new Date(renewalDate) : null;
-      if (renewal) renewal.setHours(0, 0, 0, 0);
-      const daysUntilRenewal = renewal
-        ? Math.ceil((renewal - today) / 86_400_000)
+      const renewalISO = renewalDate
+        ? renewalDate.toISOString().split("T")[0]
         : null;
-      const alert = shouldAlert(renewalISO);
 
-      // ── SOURCE EMAILS ────────────────────────────────────────────
-      // Attach every email that contributed to this detection.
-      // Sorted newest first so user sees most recent email at top.
-      const sourceEmails = [...emails]
-        .sort((a, b) => (b.emailDate || 0) - (a.emailDate || 0))
-        .map(e => ({
-          msgId:     e.msgId,
-          subject:   e.subject,
-          from:      e.from,
-          date:      e.emailDate ? e.emailDate.toISOString().split("T")[0] : null,
-          snippet:   e.snippet,          // 2-line body preview
-          hasPayment: e.hasPayment,
-          amount:    e.amount,
-          currency:  e.currency,
-          // Direct deep link → opens exact email in Gmail
-          gmailLink: `https://mail.google.com/mail/u/0/#inbox/${e.msgId}`,
-        }));
+      // Look up MERCHANT_DB metadata for icon/color/cat fallback
+      const dbEntry = MERCHANT_DB[merchantKey] || {};
 
-      results.push({
-        // Core fields
-        id:       latest.msgId,
+      const sub = {
+        // Core identity
+        id:       latest?.msgId || `sub_${Date.now()}_${Math.random()}`,
         name:     service.name,
-        icon:     service.icon,
-        color:    service.color,
-        amount:   bestAmount || 0,
-        currency: bestCurrency,
-        cycle:    "monthly",
-        cat:      service.cat,
-        status:   "active",
+        icon:     dbEntry.icon  || service.icon,
+        color:    dbEntry.color || service.color,
+        cat:      dbEntry.cat   || service.cat,
+
+        // Financial
+        amount:   result.amount,
+        currency: result.currency,
+        cycle:    result.cycle || "monthly",
         date:     renewalISO,
+        status:   "active",
 
-        // Intelligence layer
-        confidence,
-        level,
-        reasons,
-        emailCount,
-        signals:          Object.keys(signals).filter((k) => signals[k]),
-        daysUntilRenewal,
-        alert,
-        explicitDate:     !!explicitDates[0],
+        // Intelligence
+        score:      result.score,
+        verdict:    result.verdict,
+        signals:    result.signals,
+        emailCount: emails.length,
 
-        // Source email evidence — NEW
-        sourceEmails,
-      });
+        // Full pipeline trace for visualizer
+        pipelineTrace: result.trace,
+
+        // Source emails for drill-down
+        sourceEmails: [...emails]
+          .sort((a, b) => (b.emailDate || 0) - (a.emailDate || 0))
+          .map((e) => ({
+            msgId:      e.msgId,
+            subject:    e.subject,
+            from:       e.from,
+            date:       e.emailDate ? e.emailDate.toISOString().split("T")[0] : null,
+            snippet:    e.snippet,
+            gmailLink:  `https://mail.google.com/mail/u/0/#inbox/${e.msgId}`,
+          })),
+      };
+
+      if (result.verdict === "confirmed")   confirmed.push(sub);
+      else if (result.verdict === "possible") possible.push(sub);
+      else                                    ignored.push(sub);
     }
 
-    results.sort((a, b) => b.confidence - a.confidence);
+    // Sort by score desc within each bucket
+    confirmed.sort((a, b) => b.score - a.score);
+    possible.sort((a, b) => b.score - a.score);
+
+    const stats = {
+      fetched:   messages.length,
+      candidates: candidates.length,
+      confirmed:  confirmed.length,
+      possible:   possible.length,
+      ignored:    ignored.length,
+    };
 
     console.log(
-      `[Gmail Scan] ${messages.length} emails → ${candidates.length} candidates → ${results.length} subscriptions`
+      `[Gmail Scan] Done — ${stats.confirmed} confirmed, ${stats.possible} possible, ${stats.ignored} ignored`
     );
 
-    return Response.json({ subscriptions: results });
-
+    return Response.json({
+      subscriptions: [...confirmed, ...possible],   // keeps backward compat
+      confirmed,
+      possible,
+      ignored,                                       // full data for "see why"
+      stats,
+    });
   } catch (error) {
     console.error("Gmail scan error:", error);
     return Response.json({ error: "Failed to scan Gmail" }, { status: 500 });
