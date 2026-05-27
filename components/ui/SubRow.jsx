@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Badge from '@/components/ui/Badge';
+import LetterAvatar from '@/components/ui/LetterAvatar';
 import { useSubs, useCurrency } from '@/lib/context';
 import { daysTo, fmtDate, currencySymbol } from '@/lib/helpers';
 import { getCancelGuide } from '@/lib/cancelGuides';
@@ -24,7 +25,7 @@ export default function SubRow({ sub }) {
     <>
       <div className="sub-row">
         <div className="sn-cell">
-          <div className="sub-icon" style={{ background: `${sub.color}22` }}>{sub.icon}</div>
+          <LetterAvatar name={sub.name} color={sub.color || '#888'} size={36} radius={10} />
           <div>
             <div className="sub-name-text">{sub.name}</div>
             <div className="sub-cat">{sub.cat}</div>

@@ -154,17 +154,10 @@ export default function Settings({ onOpenScan }) {
         </div>
         <div className="settings-row">
           <div>
-            <div className="settings-row-label">📬 Outlook</div>
-            <div className="settings-row-desc">Connect Microsoft email for scanning</div>
-          </div>
-          <button className="btn btn-ghost btn-sm">Connect</button>
-        </div>
-        <div className="settings-row">
-          <div>
             <div className="settings-row-label">🏦 Bank Account</div>
             <div className="settings-row-desc">Link bank via Plaid to catch missed subscriptions</div>
           </div>
-          <button className="btn btn-ghost btn-sm">Connect</button>
+          <button className="btn btn-blue btn-sm" onClick={onOpenScan}>Connect</button>
         </div>
       </div>
 

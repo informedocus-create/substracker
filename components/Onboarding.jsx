@@ -10,6 +10,7 @@ import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { INDIAN_SERVICES, getCategories, getByCategory, CATEGORY_ICONS } from '@/lib/indianServices'
 import { supabase } from '@/lib/supabase'
+import LetterAvatar from '@/components/ui/LetterAvatar'
 
 // ─── STEP INDICATOR ──────────────────────────────────────────────────────────
 
@@ -102,21 +103,8 @@ function LogoGrid({ selected, onToggle, onContinue, onBack }) {
                           transform: isSelected ? 'scale(1.03)' : 'scale(1)',
                         }}
                       >
-                        {/* Logo image with color-dot fallback */}
-                        <img
-                          src={service.logo}
-                          alt={service.name}
-                          style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'contain' }}
-                          onError={e => {
-                            e.target.style.display = 'none'
-                            e.target.nextSibling.style.display = 'flex'
-                          }}
-                        />
-                        <div style={{
-                          ...styles.logoDot,
-                          background: service.color,
-                          display: 'none',
-                        }} />
+                        {/* Letter avatar — copyright-free, always renders */}
+                        <LetterAvatar name={service.name} color={service.color} size={36} radius={10} />
                         <span style={{
                           ...styles.logoName,
                           color: isSelected ? '#FF6B35' : '#1A1814',
@@ -209,14 +197,7 @@ function ConfirmAmounts({ selected, onSave, onBack, loading }) {
             <div key={item.id} style={styles.confirmCard}>
               <div style={styles.confirmHeader}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: item.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <img
-                      src={`/logos/${item.id}.png`}
-                      alt={item.name}
-                      style={{ width: 28, height: 28, objectFit: 'contain' }}
-                      onError={e => { e.target.style.display = 'none' }}
-                    />
-                  </div>
+                  <LetterAvatar name={item.name} color={item.color} size={28} radius={8} />
                   <div>
                     <div style={styles.confirmName}>{item.name}</div>
                     <div style={styles.confirmCat}>{CATEGORY_ICONS[item.category]} {item.category}</div>
