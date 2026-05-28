@@ -35,7 +35,7 @@ const TESTIMONIALS = [
     grad: 'linear-gradient(135deg,#00e5a0,#00b4d8)',
   },
   {
-    text: '"Finally an app that knows Indian prices. Every other tracker shows dollar amounts. SubTracker just works for India — setup took 30 seconds."',
+    text: '"Finally an app that knows Indian prices. Every other tracker shows dollar amounts. Substracker just works for India — setup took 30 seconds."',
     name: 'Ananya Patel',
     loc: 'Pune, Maharashtra',
     initial: 'A',
@@ -77,7 +77,7 @@ export default function Landing() {
       <nav className="lp-nav">
         <a href="#" className="lp-nav-logo">
           <div className="lp-logo-mark">📊</div>
-          <span className="lp-logo-text">SubTracker</span>
+          <span className="lp-logo-text">Substracker</span>
         </a>
         <div className="lp-nav-links">
           <a href="#how"      className="lp-nav-link">How it works</a>
@@ -103,7 +103,7 @@ export default function Landing() {
         </h1>
 
         <p className="lp-hero-sub">
-          SubTracker automatically scans your Gmail, finds every subscription,
+          Substracker automatically scans your Gmail, finds every subscription,
           and alerts you before renewals hit. The average user saves <strong>₹3,500/month</strong>.
         </p>
 
@@ -137,14 +137,14 @@ export default function Landing() {
             <div className="lp-tb-dot" style={{ background: '#ff5f5f' }} />
             <div className="lp-tb-dot" style={{ background: '#f5a623' }} />
             <div className="lp-tb-dot" style={{ background: '#00e5a0' }} />
-            <span className="lp-tb-label">SubTracker Dashboard</span>
+            <span className="lp-tb-label">Substracker Dashboard</span>
           </div>
           <div className="lp-preview-body">
             {/* Mini sidebar */}
             <div className="lp-preview-sidebar">
               <div className="lp-ps-logo">
                 <div className="lp-ps-mark">📊</div>
-                <span className="lp-ps-text">SubTracker</span>
+                <span className="lp-ps-text">Substracker</span>
               </div>
               {['📊 Dashboard','📋 Subscriptions','⏳ Trials','💰 Save Money','📈 Analytics','⚙️ Settings']
                 .map((item, i) => (
@@ -242,7 +242,7 @@ export default function Landing() {
           <div className="lp-india-text">
             <div className="lp-tag">🇮🇳 Made for India</div>
             <h2 className="lp-h2">Every Indian app.<br />Real ₹ prices.</h2>
-            <p className="lp-section-sub">ReSubs, Tilla, Rocket Money — all US-built. No UPI, no rupees, no Indian apps. SubTracker is the only tracker built from the ground up for Indian users.</p>
+            <p className="lp-section-sub">ReSubs, Tilla, Rocket Money — all US-built. No UPI, no rupees, no Indian apps. Substracker is the only tracker built from the ground up for Indian users.</p>
             <div className="lp-india-checks">
               {[
                 'Pre-filled Indian prices — no typing needed',
@@ -351,7 +351,7 @@ export default function Landing() {
       <footer className="lp-footer">
         <div className="lp-footer-left">
           <div className="lp-logo-mark" style={{ width: 28, height: 28, fontSize: 14 }}>📊</div>
-          <span className="lp-footer-copy">© 2026 SubTracker. Made with ❤️ in India.</span>
+          <span className="lp-footer-copy">© 2026 Substracker. Made with ❤️ in India.</span>
         </div>
         <div className="lp-footer-links">
           <a href="/privacy" className="lp-footer-link">Privacy Policy</a>

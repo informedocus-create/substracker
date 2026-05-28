@@ -1,6 +1,7 @@
 'use client';
 import { useSubs } from '@/lib/context';
 import { useSession, signIn, signOut } from 'next-auth/react';
+import Link from 'next/link';
 
 const NAV = [
   { id: 'dashboard',     icon: '📊', label: 'Dashboard' },
@@ -26,8 +27,10 @@ export default function Sidebar({ active, onNavigate, isOpen, onClose }) {
   return (
     <aside className={`sidebar${isOpen ? ' open' : ''}`}>
       <div className="sb-logo">
-        <div className="sb-logo-mark">⚡</div>
-        <span className="sb-logo-text">Substracker</span>
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', color: 'inherit', flex: 1 }}>
+          <div className="sb-logo-mark">⚡</div>
+          <span className="sb-logo-text">Substracker</span>
+        </Link>
         <button className="sb-mobile-close" onClick={onClose}>✕</button>
       </div>
 
