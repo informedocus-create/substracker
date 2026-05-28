@@ -36,6 +36,12 @@ yarn-error.log*
 # vercel
 .vercel
 
+# sensitive / secret files — never commit these
+"Important keys.txt"
+*keys*.txt
+*secrets*.txt
+*credentials*.txt
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

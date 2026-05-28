@@ -3,8 +3,8 @@ import { SubsProvider } from '@/lib/context';
 import Providers from "@/components/Providers";
 
 export const metadata = {
-  title: 'Substracker — Subscription Manager',
-  description: 'Track all your subscriptions, free trials, and spending in one place.',
+  title: 'SubTracker — Track Every Subscription. Stop Wasting Money.',
+  description: 'SubTracker automatically finds your subscriptions from Gmail and tracks every renewal. Built for India — UPI, ₹, and all Indian apps supported.',
 };
 
 export default function RootLayout({ children }) {

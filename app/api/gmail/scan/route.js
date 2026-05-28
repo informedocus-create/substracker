@@ -99,7 +99,7 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.accessToken) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
+      return Response.json({ error: 'Unauthorized: Please sign in with Google to use Gmail scan.' }, { status: 401 });
     }
 
     // ── Build Gmail client ──────────────────────────────────────────
@@ -337,7 +337,40 @@ export async function GET() {
       stats,
     });
   } catch (error) {
-    console.error("Gmail scan error:", error);
-    return Response.json({ error: "Failed to scan Gmail" }, { status: 500 });
+    console.error('Gmail scan error:', error);
+
+    // Surface a classifiable error message to the frontend
+    const msg = error?.message || '';
+    const code = error?.code || error?.status || 0;
+
+    if (code === 401 || msg.includes('invalid_grant') || msg.includes('token')) {
+      return Response.json(
+        { error: 'Unauthorized: Your session has expired. Please sign in again.' },
+        { status: 401 }
+      );
+    }
+    if (code === 403 || msg.includes('insufficient') || msg.includes('permission') || msg.includes('scope')) {
+      return Response.json(
+        { error: 'Insufficient permissions: Gmail read access was not granted.' },
+        { status: 403 }
+      );
+    }
+    if (code === 429 || msg.includes('quota') || msg.includes('rate')) {
+      return Response.json(
+        { error: 'Quota exceeded: Gmail API rate limit reached. Please try again in a minute.' },
+        { status: 429 }
+      );
+    }
+    if (msg.includes('ENOTFOUND') || msg.includes('fetch') || msg.includes('network') || msg.includes('timeout')) {
+      return Response.json(
+        { error: 'Network error: Could not reach Gmail. Check your internet connection.' },
+        { status: 503 }
+      );
+    }
+
+    return Response.json(
+      { error: `Failed to scan Gmail: ${msg || 'Unknown error'}` },
+      { status: 500 }
+    );
   }
 }

@@ -128,6 +128,145 @@ function SubResultCard({ sub, mode, onConfirm, onReject, selected, onToggle }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+//  SCAN ERROR STATE  — friendly error display after a failed scan
+// ═══════════════════════════════════════════════════════════════════
+
+const ERROR_META = {
+  auth: {
+    icon: '🔐',
+    iconBg: 'rgba(155,120,248,0.12)',
+    iconColor: 'var(--purple)',
+    title: 'Sign-In Required',
+    desc: 'Your session has expired or Gmail access was not granted. Sign in again to reconnect your Google account.',
+    steps: [
+      'Click "Sign in with Google" below',
+      'Select the Google account that has your subscription emails',
+      'Grant Gmail read-only access when prompted',
+    ],
+    primaryLabel: '🔑 Sign in with Google',
+    primaryAction: 'signin',
+    accentColor: 'rgba(155,120,248,0.2)',
+    borderColor: 'rgba(155,120,248,0.3)',
+  },
+  permissions: {
+    icon: '🚫',
+    iconBg: 'rgba(245,166,35,0.12)',
+    iconColor: 'var(--amber)',
+    title: 'Gmail Access Not Granted',
+    desc: 'The app needs Gmail read-only permission to scan your receipts. No emails are ever stored.',
+    steps: [
+      'Click "Grant Access" below to reconnect',
+      'In the Google permission screen, tick Gmail Read access',
+      'Return here and click Start Detection',
+    ],
+    primaryLabel: '🔓 Grant Access',
+    primaryAction: 'signin',
+    accentColor: 'rgba(245,166,35,0.1)',
+    borderColor: 'rgba(245,166,35,0.3)',
+  },
+  quota: {
+    icon: '⏳',
+    iconBg: 'rgba(79,142,247,0.12)',
+    iconColor: 'var(--blue)',
+    title: 'Rate Limit Reached',
+    desc: 'Gmail\'s API limit was hit. This resets automatically — try again in a minute.',
+    steps: [
+      'Wait 60 seconds for the rate limit to clear',
+      'Click "Try Again" below',
+      'If it persists, try again in a few hours',
+    ],
+    primaryLabel: '🔄 Try Again',
+    primaryAction: 'retry',
+    accentColor: 'rgba(79,142,247,0.08)',
+    borderColor: 'rgba(79,142,247,0.25)',
+  },
+  network: {
+    icon: '📡',
+    iconBg: 'rgba(255,95,95,0.1)',
+    iconColor: 'var(--red)',
+    title: 'Connection Problem',
+    desc: 'Could not reach Gmail. Check your internet connection and try again.',
+    steps: [
+      'Check you are connected to the internet',
+      'Disable any VPN or proxy that may block Google APIs',
+      'Click "Try Again" once the connection is stable',
+    ],
+    primaryLabel: '🔄 Try Again',
+    primaryAction: 'retry',
+    accentColor: 'rgba(255,95,95,0.06)',
+    borderColor: 'rgba(255,95,95,0.2)',
+  },
+  unknown: {
+    icon: '⚠️',
+    iconBg: 'rgba(255,95,95,0.1)',
+    iconColor: 'var(--red)',
+    title: 'Scan Failed',
+    desc: 'Something went wrong while scanning your Gmail. This is usually temporary.',
+    steps: [
+      'Click "Try Again" — most errors resolve on retry',
+      'Make sure you are signed in with Google',
+      'If the problem persists, try signing out and back in',
+    ],
+    primaryLabel: '🔄 Try Again',
+    primaryAction: 'retry',
+    accentColor: 'rgba(255,95,95,0.06)',
+    borderColor: 'rgba(255,95,95,0.2)',
+  },
+};
+
+function ScanErrorState({ errorType = 'unknown', errorMsg, onRetry, onClose, onSignIn }) {
+  const meta = ERROR_META[errorType] || ERROR_META.unknown;
+
+  return (
+    <div className="scan-error-state">
+      {/* Animated icon */}
+      <div className="scan-error-icon-wrap" style={{ background: meta.iconBg }}>
+        <span className="scan-error-icon">{meta.icon}</span>
+      </div>
+
+      {/* Title & description */}
+      <div className="scan-error-title">{meta.title}</div>
+      <p className="scan-error-desc">{meta.desc}</p>
+
+      {/* Raw error detail (collapsed by default) */}
+      {errorMsg && (
+        <details className="scan-error-details">
+          <summary>Technical details</summary>
+          <code>{errorMsg}</code>
+        </details>
+      )}
+
+      {/* Troubleshooting steps */}
+      <div className="scan-error-steps" style={{ borderColor: meta.borderColor, background: meta.accentColor }}>
+        <div className="scan-error-steps-label">How to fix this</div>
+        {meta.steps.map((step, i) => (
+          <div key={i} className="scan-error-step">
+            <span className="scan-error-step-num">{i + 1}</span>
+            <span>{step}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Actions */}
+      <div className="scan-error-actions">
+        <button className="btn btn-ghost" onClick={onClose}>
+          Close
+        </button>
+        {meta.primaryAction === 'signin' ? (
+          <button className="btn btn-accent" onClick={onSignIn}>
+            {meta.primaryLabel}
+          </button>
+        ) : (
+          <button className="btn btn-blue" onClick={onRetry}>
+            {meta.primaryLabel}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
 //  MAIN MODAL
 // ═══════════════════════════════════════════════════════════════════
 
@@ -149,6 +288,7 @@ export default function ScanModal({ isOpen, onClose }) {
   const [activeTab,  setActiveTab]  = useState('confirmed');
   const [ignoredOpen, setIgnoredOpen] = useState(false);
   const [errorMsg,   setErrorMsg]   = useState('');
+  const [errorType,  setErrorType]  = useState('unknown'); // auth | permissions | quota | network | unknown
 
   const timers = useRef([]);
 
@@ -179,6 +319,21 @@ export default function ScanModal({ isOpen, onClose }) {
     setActiveTab('confirmed');
     setIgnoredOpen(false);
     setErrorMsg('');
+    setErrorType('unknown');
+  };
+
+  // ── Classify error message into a friendly type ──────────────────
+  const classifyError = (msg) => {
+    const m = (msg || '').toLowerCase();
+    if (m.includes('unauthorized') || m.includes('401') || m.includes('sign in') || m.includes('session'))
+      return 'auth';
+    if (m.includes('insufficient') || m.includes('permission') || m.includes('scope') || m.includes('access') || m.includes('403'))
+      return 'permissions';
+    if (m.includes('quota') || m.includes('rate limit') || m.includes('429') || m.includes('too many'))
+      return 'quota';
+    if (m.includes('network') || m.includes('fetch') || m.includes('failed to fetch') || m.includes('enotfound') || m.includes('timeout'))
+      return 'network';
+    return 'unknown';
   };
 
   const handleClose = () => { resetState(); onClose(); };
@@ -260,7 +415,9 @@ export default function ScanModal({ isOpen, onClose }) {
 
     } catch (err) {
       clearTimers();
-      setErrorMsg(err.message || 'Something went wrong.');
+      const msg = err.message || 'Something went wrong.';
+      setErrorMsg(msg);
+      setErrorType(classifyError(msg));
       setPhase('error');
     }
   };
@@ -588,25 +745,13 @@ export default function ScanModal({ isOpen, onClose }) {
             PHASE: ERROR
         ════════════════════════════════════════════ */}
         {phase === 'error' && (
-          <div>
-            <div style={{
-              background: 'rgba(255,95,95,.08)',
-              border: '1px solid rgba(255,95,95,.25)',
-              borderRadius: 10, padding: '14px 16px', marginBottom: 20,
-              fontSize: 13, color: 'var(--red)',
-            }}>
-              ⚠️ {errorMsg}
-            </div>
-            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>
-              Make sure you are signed in with Google and have granted Gmail access.
-            </p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="btn btn-ghost" onClick={handleClose}>Cancel</button>
-              <button className="btn btn-blue" onClick={() => { resetState(); startScan(); }}>
-                Try Again
-              </button>
-            </div>
-          </div>
+          <ScanErrorState
+            errorType={errorType}
+            errorMsg={errorMsg}
+            onRetry={() => { resetState(); startScan(); }}
+            onClose={handleClose}
+            onSignIn={() => signIn('google')}
+          />
         )}
       </div>
     </div>
